@@ -29,64 +29,72 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/datacube-core/regi
               help="Updates the product with latest available times.")
 @click.option("--progress", default=False, type=click.BOOL,
               help="Show progress bar.")
-def index_ee(asset, product, parser, region, update_product, rolling_update, progress):
+def index_ee(*args, **kwargs):
     """This script indexes GEE products."""
     from indexing.earthengine import EarthEngine
     from indexing.utils import ee_indexer, Metadata, index_with_progress
 
+    _dc = datacube.Datacube(app='EE_Indexing_Script')
+    _ee = EarthEngine()
+
+    metadata = Metadata(asset=kwargs['asset'],
+                        product=kwargs['product'],
+                        parser=kwargs['parser'])
+
     try:
-        _dc = datacube.Datacube(app='EE_Indexing_Script')
-        _ee = EarthEngine()
-    except RuntimeError as err:
-        print(err)
+        if kwargs['region']:
+            with open(REGIONS_CONFIG, 'r') as _f:
+                regions = json.loads(_f.read())
+            filters = dict(region=_ee.to_geojson(**regions[kwargs['region']]))
+        else:
+            filters = dict(region=_ee.to_geojson(latitude=WORLD_LATITUDE,
+                                                 longitude=WORLD_LONGITUDE))
 
-    metadata = Metadata(asset=asset, product=product, parser=parser)
-
-    if region:
-        with open(REGIONS_CONFIG, 'r') as _f:
-            regions = json.loads(_f.read())
-        filters = dict(region=_ee.to_geojson(**regions[region]))
-    else:
-        filters = dict(region=_ee.to_geojson(latitude=WORLD_LATITUDE, longitude=WORLD_LONGITUDE))
-
-    asset_info = _ee.get(asset, _print=False)
-    if rolling_update:
-        if progress:
-            year = np.sort(_dc.load(product=product,
-                                    measurements=[])).astype('datetime64[ms]').item().year
-            current_year = year == datetime.utcnow().year
-            if current_year:
-                years = range(year, year+1)
+        asset_info = _ee.get(metadat.asset, _print=False)
+        if kwargs['rolling_update']:
+            if kwargs['progress']:
+                year = np.sort(_dc.load(product=metadata.product,
+                                        measurements=[])).astype('datetime64[ms]').item().year
+                current_year = year == datetime.utcnow().year
+                if current_year:
+                    years = range(year, year+1)
+                else:
+                    years = range(year, datetime.utcnow().year)
             else:
-                years = range(year, datetime.utcnow().year)
+                start_time = np.sort(_dc.load(product=metadata.product,
+                                              measurements=[]).time.values)[-1]\
+                             .astype('datetime64[ms]').item().isoformat()
+                end_time = datetime.utcnow().isoformat()
         else:
-            start_time = np.sort(_dc.load(product=product,
-                                          measurements=[]).time.values)[-1]\
-                         .astype('datetime64[ms]').item().isoformat()
-            end_time = datetime.utcnow().isoformat()
-    else:
-        if progress:
-            date_range = [np.datetime64(date, 'ms').item().year\
-                          for date in asset_info.json()['properties']['date_range']]
-            years = range(date_range[0], date_range[1]+1)
+            if kwargs['progress']:
+                date_range = [np.datetime64(date, 'ms').item().year\
+                              for date in asset_info.json()['properties']['date_range']]
+                years = range(date_range[0], date_range[1]+1)
+            else:
+                start_time, end_time = [np.datetime64(date, 'ms').item().isoformat()\
+                                        for date in asset_info.json()['properties']['date_range']]
+
+        if kwargs['progress']:
+            click.echo('Total in database before indexing: {}'\
+                       .format(len(_dc.find_datasets(product=metadata.product))))
+            _sum = index_with_progress(years, metadata, filters,
+                                       update=kwargs['update_product'])[-1]
+            click.echo(f'Sum of images found: {_sum}')
+            click.echo('Total in database after indexing: {}'\
+                       .format(len(_dc.find_datasets(product=metadata.product))))
+
         else:
-            start_time, end_time = [np.datetime64(date, 'ms').item().isoformat()\
-                                    for date in asset_info.json()['properties']['date_range']]
+            click.echo('Total in database before indexing: {}'\
+                       .format(len(_dc.find_datasets(product=metadata.product))))
+            filters.update(startTime=f'{start_time}Z',
+                           endTime=f'{end_time}Z')
+            _sum = ee_indexer(metadata, filters, update=kwargs['update_product'])[-1]
 
-    if progress:
-        click.echo(f'Total in database before indexing: {len(_dc.find_datasets(product=product))}')
-        _sum = index_with_progress(years, metadata, filters, update=update_product)[-1]
-        click.echo(f'Sum of images found: {_sum}')
-        click.echo(f'Total in database after indexing: {len(_dc.find_datasets(product=product))}')
-
-    else:
-        click.echo(f'Total in database before indexing: {len(_dc.find_datasets(product=product))}')
-        filters.update(startTime=f'{start_time}Z',
-                       endTime=f'{end_time}Z')
-        _sum = ee_indexer(metadata, filters, update=update_product)[-1]
-
-        click.echo(f'Sum of images found: {_sum}')
-        click.echo(f'Total in database after indexing: {len(_dc.find_datasets(product=product))}')
+            click.echo(f'Sum of images found: {_sum}')
+            click.echo('Total in database after indexing: {}'\
+                       .format(len(_dc.find_datasets(product=metadata.product))))
+    except:
+        raise RuntimeError('TEST')
 
 if __name__ == '__main__':
     index_ee()
