@@ -14,7 +14,7 @@ import pandas as pd
 
 import datacube
 
-Metadata = namedtuple('Metadata', 'asset product parser')
+IndexParams = namedtuple('IndexParams', 'asset product parser filters')
 
 def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
     ''' Add a dataset document to the index database.
@@ -124,9 +124,12 @@ def index_with_progress(years, *args, **kwargs):
             resp, _sum = ee_indexer(response=resp, image_sum=_sum, *args, **kwargs)
     return resp, _sum
 
-def ee_indexer(metadata, filters, update=False, response=None, image_sum=0):
+def ee_indexer(*args, update=False, response=None, image_sum=0):
     """Performs the parsing and indexing."""
     from indexing.earthengine import EarthEngine
+
+    index_params = IndexParams(*args)
+
     try:
         _dc = datacube.Datacube(app='EE_Indexer')
     except RuntimeError:
@@ -136,29 +139,32 @@ def ee_indexer(metadata, filters, update=False, response=None, image_sum=0):
     except RuntimeError:
         print('Could not connect to GEE.')
     try:
-        parser = MakeMetadataDoc(metadata.parser)
+        parser = MakeMetadataDoc(index_params.parser)
     except NotImplementedError:
-        print(f'Could not find parser: {metadata.parser}')
-    if metadata.product is None or not _dc.list_products().name.isin([metadata.product]).any():
+        print(f'Could not find parser: {index_params.parser}')
+    if index_params.product is None\
+       or not _dc.list_products().name.isin([index_params.product]).any():
         raise ValueError("Missing product.")
 
     required_bands = np.array(parser.get_bands())[..., 0]
     try:
         while(response is None or 'nextPageToken' in response.keys()):
             if response and 'nextPageToken' in response.keys():
-                filters.update(pageToken=response['nextPageToken'])
-                response = _ee.list_images(metadata.asset, _print=False, **filters).json()
-                filters.pop('pageToken')
+                index_params.filters.update(pageToken=response['nextPageToken'])
+                response = _ee.list_images(index_params.asset,
+                                           _print=False, **index_params.filters).json()
+                index_params.filters.pop('pageToken')
             else:
-                response = _ee.list_images(metadata.asset, _print=False, **filters).json()
+                response = _ee.list_images(index_params.asset,
+                                           _print=False, **index_params.filters).json()
             if len(response) != 0:
                 for image in response['images']:
                     bands = [band['id'] for band in image['bands']]
                     band_length = len(list(filter(lambda x: x in required_bands, bands)))
                     if  band_length == len(required_bands):
-                        doc = parser(image, product=metadata.product)
+                        doc = parser(image, product=index_params.product)
                         add_dataset(doc, f'EEDAI:{image["name"]}',
-                                    _dc.index, products=[metadata.product], update=update)
+                                    _dc.index, products=[index_params.product], update=update)
                 image_sum = image_sum + len(response['images'])
     except RuntimeError as err:
         print(err)

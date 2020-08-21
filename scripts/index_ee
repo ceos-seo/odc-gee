@@ -8,7 +8,7 @@ import click
 import numpy as np
 
 from indexing.earthengine import EarthEngine
-from indexing.utils import ee_indexer, Metadata, index_with_progress
+from indexing.utils import ee_indexer, index_with_progress
 import datacube
 
 DC = datacube.Datacube(app='EE_Indexing_Script')
@@ -35,10 +35,6 @@ WORLD_LONGITUDE = (-180, 180)
               help="Show progress bar.")
 def index_ee(**kwargs):
     """This script indexes GEE products."""
-    metadata = Metadata(asset=kwargs['asset'],
-                        product=kwargs['product'],
-                        parser=kwargs['parser'])
-
     try:
         if kwargs['region']:
             with open(REGIONS_CONFIG, 'r') as _f:
@@ -48,17 +44,17 @@ def index_ee(**kwargs):
             filters = dict(region=EE.to_geojson(latitude=WORLD_LATITUDE,
                                                 longitude=WORLD_LONGITUDE))
 
-        asset_info = EE.get(metadata.asset, _print=False)
+        asset_info = EE.get(kwargs['asset'], _print=False)
         if kwargs['rolling_update']:
             if kwargs['progress']:
-                year = np.sort(DC.load(product=metadata.product,
+                year = np.sort(DC.load(product=kwargs['product'],
                                        measurements=[])).astype('datetime64[ms]').item().year
                 if year == datetime.utcnow().year:
                     years = range(year, year+1)
                 else:
                     years = range(year, datetime.utcnow().year)
             else:
-                start_time = np.sort(DC.load(product=metadata.product,
+                start_time = np.sort(DC.load(product=kwargs['product'],
                                              measurements=[]).time.values)[-1]\
                              .astype('datetime64[ms]').item().isoformat()
                 end_time = datetime.utcnow().isoformat()
@@ -73,25 +69,25 @@ def index_ee(**kwargs):
 
         if kwargs['progress']:
             click.echo('Total in database before indexing: {}'\
-                       .format(len(DC.find_datasets(product=metadata.product))))
-            _sum = index_with_progress(years, metadata, filters,
-                                       update=kwargs['update_product'])[-1]
+                       .format(len(DC.find_datasets(product=kwargs['product']))))
+            _sum = index_with_progress(years, kwargs['asset'], kwargs['product'], kwargs['parser'],
+                                       filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after indexing: {}'\
-                       .format(len(DC.find_datasets(product=metadata.product))))
+                       .format(len(DC.find_datasets(product=kwargs['product']))))
 
         else:
             click.echo('Total in database before indexing: {}'\
-                       .format(len(DC.find_datasets(product=metadata.product))))
+                       .format(len(DC.find_datasets(product=kwargs['product']))))
             filters.update(startTime=f'{start_time}Z',
                            endTime=f'{end_time}Z')
-            _sum = ee_indexer(metadata, filters, update=kwargs['update_product'])[-1]
-
+            _sum = ee_indexer(kwargs['asset'], kwargs['product'], kwargs['parser'],
+                              filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after indexing: {}'\
-                       .format(len(DC.find_datasets(product=metadata.product))))
+                       .format(len(DC.find_datasets(product=kwargs['product']))))
     except Exception:
-        print(f'Failed to index {metadata.product}.')
+        print(f'Failed to index {kwargs["product"]}.')
 
 if __name__ == '__main__':
     index_ee()
