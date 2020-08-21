@@ -23,14 +23,15 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/datacube-core/regi
               help="The parser to use for the product being indexed.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
-@click.option("--update_product", default=False, type=click.BOOL,
+@click.option("--update_product", is_flag=True, flag_value=True,
               help="Updates the product in the index.")
-@click.option("--rolling_update", default=False, type=click.BOOL,
+@click.option("--rolling_update", is_flag=True, flag_value=True,
               help="Updates the product with latest available times.")
-@click.option("--progress", default=False, type=click.BOOL,
+@click.option("--progress", is_flag=True, flag_value=True,
               help="Show progress bar.")
 def index_ee(*args, **kwargs):
     """This script indexes GEE products."""
+    click.echo(kwargs)
     from indexing.earthengine import EarthEngine
     from indexing.utils import ee_indexer, Metadata, index_with_progress
 
@@ -50,7 +51,7 @@ def index_ee(*args, **kwargs):
             filters = dict(region=_ee.to_geojson(latitude=WORLD_LATITUDE,
                                                  longitude=WORLD_LONGITUDE))
 
-        asset_info = _ee.get(metadat.asset, _print=False)
+        asset_info = _ee.get(metadata.asset, _print=False)
         if kwargs['rolling_update']:
             if kwargs['progress']:
                 year = np.sort(_dc.load(product=metadata.product,
@@ -94,7 +95,7 @@ def index_ee(*args, **kwargs):
             click.echo('Total in database after indexing: {}'\
                        .format(len(_dc.find_datasets(product=metadata.product))))
     except:
-        raise RuntimeError('TEST')
+        print(f'Failed to index {metadata.product}.')
 
 if __name__ == '__main__':
     index_ee()

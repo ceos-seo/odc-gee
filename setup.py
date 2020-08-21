@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(name='odc-ee',
-      version='0.0.1',
+      version='0.0.2',
       description='EE Indexing Tools',
       author='Andrew Lubawy',
       author_email='andrew.m.lubawy@ama-inc.com',
