@@ -31,7 +31,6 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/datacube-core/regi
               help="Show progress bar.")
 def index_ee(*args, **kwargs):
     """This script indexes GEE products."""
-    click.echo(kwargs)
     from indexing.earthengine import EarthEngine
     from indexing.utils import ee_indexer, Metadata, index_with_progress
 
