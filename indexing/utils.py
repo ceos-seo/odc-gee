@@ -121,9 +121,8 @@ def index_with_progress(years, *args, **kwargs):
                                endTime=f'{_r[idx+1].isoformat()}Z')
             else:
                 break
-            resp = ee_indexer(response=resp, *args, **kwargs)
-            _sum += resp[1]
-    return resp[0], _sum
+            resp, _sum = ee_indexer(response=resp, image_sum=_sum, *args, **kwargs)
+    return resp, _sum
 
 def ee_indexer(metadata, filters, update=False, response=None, image_sum=0):
     """Performs the parsing and indexing."""
