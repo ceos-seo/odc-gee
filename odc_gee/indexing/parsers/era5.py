@@ -1,21 +1,19 @@
-""" Parser for Landsat 8 metadata from GEE. """
+""" Parses ERA5 metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import Metadata
+from odc_gee.indexing.parsers.utils import Metadata
 
-BANDS = [('ssm', 'ssm'),
-         ('susm', 'susm'),
-         ('smp', 'smp'),
-         ('ssma', 'ssma'),
-         ('susma', 'susma')]
+BANDS = [('mean_2m_air_temperature', 'mean_2m_air_temperature'),
+         ('minimum_2m_air_temperature', 'minimum_2m_air_temperature'),
+         ('maximum_2m_air_temperature', 'maximum_2m_air_temperature'),
+         ('dewpoint_2m_temperature', 'dewpoint_2m_temperature'),
+         ('total_precipitation', 'total_precipitation'),
+         ('surface_pressure', 'surface_pressure'),
+         ('mean_sea_level_pressure', 'mean_sea_level_pressure'),
+         ('u_component_of_wind_10m', 'u_component_of_wind_10m'),
+         ('v_component_of_wind_10m', 'v_component_of_wind_10m')]
 
 def parse(image_data, product=None):
-    """
-    Extract useful information to index to datacube from the scene based metadata
-    :param mtl_data: metadata read from the MTL.txt
-    :param bucket_name: AWS public bucket name
-    :param object_key: Prefix to pass the particular path and row
-    :return:
-    """
+    """ Parser for ERA5 data. """
     if product:
         _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product}/{image_data["name"]}'))
     else:
@@ -33,9 +31,9 @@ def parse(image_data, product=None):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
-                        product_type='SMAP',
-                        platform='SMAP',
-                        instrument='SMAP',
+                        product_type='ECMWF',
+                        platform='ERA5',
+                        instrument='ERA5',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

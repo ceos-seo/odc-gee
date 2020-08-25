@@ -1,17 +1,18 @@
 """ Parser for Landsat 8 metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import Metadata, get_coords, get_geo_ref_points
+from odc_gee.indexing.parsers.utils import Metadata, get_coords, get_geo_ref_points
 
-BANDS = [('B1', 'blue'),
-         ('B2', 'green'),
-         ('B3', 'red'),
-         ('B4', 'nir'),
-         ('B5', 'swir1'),
-         ('B6', 'lwir'),
+BANDS = [('B1', 'coastal_aerosol'),
+         ('B2', 'blue'),
+         ('B3', 'green'),
+         ('B4', 'red'),
+         ('B5', 'nir'),
+         ('B6', 'swir1'),
          ('B7', 'swir2'),
-         ('sr_atmos_opacity', 'sr_atmos_opacity'),
-         ('sr_cloud_qa', 'sr_cloud_qa'),
+         ('B10', 'lwir1'),
+         ('B11', 'lwir2'),
          ('pixel_qa', 'pixel_qa'),
+         ('sr_aerosol', 'sr_aerosol'),
          ('radsat_qa', 'radsat_qa')]
 
 def parse(image_data, product=None):
@@ -32,9 +33,9 @@ def parse(image_data, product=None):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
-                        product_type='LEDAPS',
-                        platform='LANDSAT_7',
-                        instrument='ETM',
+                        product_type='LaSRC',
+                        platform='LANDSAT_8',
+                        instrument='OLI_TIRS',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

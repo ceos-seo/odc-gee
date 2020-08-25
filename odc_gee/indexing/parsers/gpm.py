@@ -1,8 +1,16 @@
 """ Parser for Landsat 8 metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import Metadata
+from odc_gee.indexing.parsers.utils import Metadata
 
-BANDS = [('population_count', 'population')]
+BANDS = [('HQobservationTime', 'HQobservationTime'),
+         ('HQprecipSource', 'HQprecipSource'),
+         ('HQprecipitation', 'HQprecipitation'),
+         ('IRkalmanFilterWeight', 'IRkalmanFilterWeight'),
+         ('IRprecipitation', 'IRprecipitation'),
+         ('precipitationCal', 'precipitationCal'),
+         ('precipitationUncal', 'precipitationUncal'),
+         ('probabilityLiquidPrecipitation', 'probabilityLiquidPrecipitation'),
+         ('randomError', 'randomError')]
 
 def parse(image_data, product=None):
     """
@@ -29,9 +37,9 @@ def parse(image_data, product=None):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
-                        product_type='GPW',
-                        platform='GPW',
-                        instrument='GPW',
+                        product_type='GPM',
+                        platform='GPM',
+                        instrument='GPM',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

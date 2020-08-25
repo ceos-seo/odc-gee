@@ -7,8 +7,8 @@ import os
 import click
 import numpy as np
 
-from indexing.earthengine import EarthEngine
-from indexing.utils import ee_indexer, index_with_progress
+from odc_gee.earthengine import EarthEngine
+from odc_gee.indexing.utils import gee_indexer, index_with_progress
 import datacube
 
 DC = datacube.Datacube(app='EE_Indexing_Script')
@@ -33,7 +33,7 @@ WORLD_LONGITUDE = (-180, 180)
               help="Updates the product with latest available times.")
 @click.option("--progress", is_flag=True, flag_value=True,
               help="Show progress bar.")
-def index_ee(**kwargs):
+def index_gee(**kwargs):
     """This script indexes GEE products."""
     try:
         if kwargs['region']:
@@ -81,7 +81,7 @@ def index_ee(**kwargs):
                        .format(len(DC.find_datasets(product=kwargs['product']))))
             filters.update(startTime=f'{start_time}Z',
                            endTime=f'{end_time}Z')
-            _sum = ee_indexer(kwargs['asset'], kwargs['product'], kwargs['parser'],
+            _sum = gee_indexer(kwargs['asset'], kwargs['product'], kwargs['parser'],
                               filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after indexing: {}'\
@@ -90,4 +90,4 @@ def index_ee(**kwargs):
         print(f'Failed to index {kwargs["product"]}.')
 
 if __name__ == '__main__':
-    index_ee()
+    index_gee()

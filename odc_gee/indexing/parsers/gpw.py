@@ -1,11 +1,17 @@
-""" Parses SRTM metadata from GEE. """
+""" Parser for Landsat 8 metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import Metadata
+from odc_gee.indexing.parsers.utils import Metadata
 
-BANDS = [('elevation', 'elevation')]
+BANDS = [('population_count', 'population')]
 
 def parse(image_data, product=None):
-    """ Parser for SRTM data. """
+    """
+    Extract useful information to index to datacube from the scene based metadata
+    :param mtl_data: metadata read from the MTL.txt
+    :param bucket_name: AWS public bucket name
+    :param object_key: Prefix to pass the particular path and row
+    :return:
+    """
     if product:
         _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product}/{image_data["name"]}'))
     else:
@@ -23,9 +29,9 @@ def parse(image_data, product=None):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
-                        product_type='DEM',
-                        platform='STS',
-                        instrument='SRTM',
+                        product_type='GPW',
+                        platform='GPW',
+                        instrument='GPW',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

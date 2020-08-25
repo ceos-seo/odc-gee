@@ -1,6 +1,6 @@
 """ Parser for Sentinel-1 metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import Metadata, get_coords, get_geo_ref_points
+from odc_gee.indexing.parsers.utils import Metadata, get_coords, get_geo_ref_points
 
 BANDS = [('VV', 'vv'),
          ('VH', 'vh')]

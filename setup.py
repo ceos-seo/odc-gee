@@ -2,7 +2,7 @@
 
 from setuptools import setup, find_packages
 
-setup(name='odc-ee',
+setup(name='odc-gee',
       version='0.0.2',
       description='EE Indexing Tools',
       author='Andrew Lubawy',
@@ -22,4 +22,4 @@ setup(name='odc-ee',
           "tqdm>=4.46.0",
           ],
       packages=find_packages(),
-      scripts=['scripts/index_ee', 'scripts/new_product'],)
+      scripts=['scripts/index_gee', 'scripts/new_product'],)

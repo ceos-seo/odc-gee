@@ -1,6 +1,6 @@
 """ Parser for ALOS metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import Metadata
+from odc_gee.indexing.parsers.utils import Metadata
 
 BANDS = [('HH', 'hh'),
          ('HV', 'hv'),

@@ -1,9 +1,11 @@
 """ Parser for DMSP OLS Nighttime Lights metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import Metadata
+from odc_gee.indexing.parsers.utils import Metadata
 
-BANDS = [('avg_rad', 'avg_rad'),
-         ('cf_cvg', 'cf_cvg')]
+BANDS = [('avg_vis', 'avg_vis'),
+         ('stable_lights', 'stable_lights'),
+         ('cf_cvg', 'cf_cvg'),
+         ('avg_lights_x_pct', 'avg_lights_x_pct')]
 
 def parse(image_data, product=None):
     """
@@ -30,9 +32,9 @@ def parse(image_data, product=None):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
-                        product_type='VCMCFG',
-                        platform='VIIRS',
-                        instrument='DNB',
+                        product_type='NIGHTTIME_LIGHTS',
+                        platform='DMSP',
+                        instrument='OLS',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

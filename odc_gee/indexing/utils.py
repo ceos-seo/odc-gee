@@ -55,7 +55,7 @@ class MakeMetadataDoc:
 
     def __init__(self, parser):
         try:
-            self.parser = importlib.import_module(f'odc_ee.indexing.parsers.{parser}')
+            self.parser = importlib.import_module(f'odc_gee.indexing.parsers.{parser}')
         except ImportError:
             print(f'Parser ({parser}) could not be imported.')
 
@@ -116,12 +116,12 @@ def index_with_progress(years, *args, **kwargs):
                                endTime=f'{_r[idx+1].isoformat()}Z')
             else:
                 break
-            resp, _sum = ee_indexer(response=resp, image_sum=_sum, *args, **kwargs)
+            resp, _sum = gee_indexer(response=resp, image_sum=_sum, *args, **kwargs)
     return resp, _sum
 
-def ee_indexer(*args, update=False, response=None, image_sum=0):
+def gee_indexer(*args, update=False, response=None, image_sum=0):
     """Performs the parsing and indexing."""
-    from odc_ee.earthengine import EarthEngine
+    from odc_gee.earthengine import EarthEngine
 
     index_params = IndexParams(*args)
 
