@@ -1,6 +1,6 @@
 """ Parses ERA5 metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import METADATA
+from odc_ee.indexing.parsers.utils import Metadata
 
 BANDS = [('mean_2m_air_temperature', 'mean_2m_air_temperature'),
          ('minimum_2m_air_temperature', 'minimum_2m_air_temperature'),
@@ -29,7 +29,7 @@ def parse(image_data, product=None):
                       'lr': {'x': 180.0, 'y': -90.0}}
     spatial_reference = int(image_data['bands'][0]['grid']['crsCode'].split(':')[1])
 
-    metadata = METADATA(id=_id,
+    metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
                         product_type='ECMWF',
                         platform='ERA5',

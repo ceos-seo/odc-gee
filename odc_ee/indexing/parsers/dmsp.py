@@ -1,6 +1,6 @@
 """ Parser for DMSP OLS Nighttime Lights metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import METADATA
+from odc_ee.indexing.parsers.utils import Metadata
 
 BANDS = [('avg_vis', 'avg_vis'),
          ('stable_lights', 'stable_lights'),
@@ -30,7 +30,7 @@ def parse(image_data, product=None):
                       'lr': {'x': 180.0, 'y': -90.0}}
     spatial_reference = int(image_data['bands'][0]['grid']['crsCode'].split(':')[1])
 
-    metadata = METADATA(id=_id,
+    metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
                         product_type='NIGHTTIME_LIGHTS',
                         platform='DMSP',

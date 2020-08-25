@@ -1,6 +1,6 @@
 """ Parser for Landsat 8 metadata from GEE. """
 import uuid
-from odc_ee.indexing.parsers.utils import METADATA, get_coords
+from odc_ee.indexing.parsers.utils import Metadata, get_coords
 
 BANDS = [('population', 'population')]
 
@@ -22,7 +22,7 @@ def parse(image_data, product=None):
                                 spatial=True, rot=False)
     spatial_reference = int(image_data['bands'][0]['grid']['crsCode'].split(':')[1])
 
-    metadata = METADATA(id=_id,
+    metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
                         product_type='WORLDPOP',
                         platform='WORLDPOP',

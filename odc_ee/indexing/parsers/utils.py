@@ -3,7 +3,7 @@ from collections import namedtuple
 import numpy as np
 from pyproj import CRS, Transformer
 
-METADATA = namedtuple('Metadata', ','.join(['id',
+Metadata = namedtuple('Metadata', ','.join(['id',
                                             'creation_dt',
                                             'product_type',
                                             'platform',
