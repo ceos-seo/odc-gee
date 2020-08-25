@@ -4,8 +4,8 @@ import click
 import yaml
 
 @click.command()
-@click.argument("_file", required=True, type=click.STRING)
-def new_product(_file):
+@click.argument("file", required=True, type=click.STRING)
+def new_product(**kwargs):
     """Creates a product definition through various prompts to user."""
     doc = dict()
     doc['name'] = click.prompt("Name of the product", type=click.STRING)
@@ -47,10 +47,10 @@ def new_product(_file):
                 doc['bands'][band]['flag_definition'][flag] = dict(bits=bits,
                                                                    description=flag_description,
                                                                    values=values)
-    with open(_file, 'w') as _f:
+    with open(kwargs['file'], 'w') as _f:
         _f.write(yaml.dump(doc))
 
-    click.echo(f'File written to {_file}.')
+    click.echo(f'File written to {kwargs["file"]}.')
 
 if __name__ == '__main__':
     new_product()
