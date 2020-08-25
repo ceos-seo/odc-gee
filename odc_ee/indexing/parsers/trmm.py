@@ -1,8 +1,10 @@
 """ Parser for Landsat 8 metadata from GEE. """
 import uuid
-from indexing.parsers.utils import METADATA
+from odc_ee.indexing.parsers.utils import METADATA
 
-BANDS = [('population_count', 'population')]
+BANDS = [('precipitation', 'precipitation'),
+         ('relativeError', 'relativeError'),
+         ('gaugeRelativeWeighting', 'gaugeRelativeWeighting')]
 
 def parse(image_data, product=None):
     """
@@ -17,21 +19,21 @@ def parse(image_data, product=None):
     else:
         _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{image_data["name"]}'))
     creation_dt = image_data['startTime']
-    coord = {'ul': {'lon': -180.0, 'lat': 90.0},
-             'ur': {'lon': 180.0, 'lat': 90.0},
-             'll': {'lon': -180.0, 'lat': -90.0},
-             'lr': {'lon': 180.0, 'lat': -90.0}}
-    geo_ref_points = {'ul': {'x': -180.0, 'y': 90.0},
-                      'ur': {'x': 180.0, 'y': 90.0},
-                      'll': {'x': -180.0, 'y': -90.0},
-                      'lr': {'x': 180.0, 'y': -90.0}}
+    coord = {'ul': {'lon': -180.0, 'lat': 40.0},
+             'ur': {'lon': 180.0, 'lat': 40.0},
+             'll': {'lon': -180.0, 'lat': -40.0},
+             'lr': {'lon': 180.0, 'lat': -40.0}}
+    geo_ref_points = {'ul': {'x': -180.0, 'y': 40.0},
+                      'ur': {'x': 180.0, 'y': 40.0},
+                      'll': {'x': -180.0, 'y': -40.0},
+                      'lr': {'x': 180.0, 'y': -40.0}}
     spatial_reference = int(image_data['bands'][0]['grid']['crsCode'].split(':')[1])
 
     metadata = METADATA(id=_id,
                         creation_dt=creation_dt,
-                        product_type='GPW',
-                        platform='GPW',
-                        instrument='GPW',
+                        product_type='TRMM',
+                        platform='TRMM',
+                        instrument='TRMM',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

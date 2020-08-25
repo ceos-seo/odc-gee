@@ -1,12 +1,9 @@
-""" Parser for Landsat 8 metadata from GEE. """
+""" Parser for DMSP OLS Nighttime Lights metadata from GEE. """
 import uuid
-from indexing.parsers.utils import METADATA
+from odc_ee.indexing.parsers.utils import METADATA
 
-BANDS = [('ssm', 'ssm'),
-         ('susm', 'susm'),
-         ('smp', 'smp'),
-         ('ssma', 'ssma'),
-         ('susma', 'susma')]
+BANDS = [('avg_rad', 'avg_rad'),
+         ('cf_cvg', 'cf_cvg')]
 
 def parse(image_data, product=None):
     """
@@ -33,9 +30,9 @@ def parse(image_data, product=None):
 
     metadata = METADATA(id=_id,
                         creation_dt=creation_dt,
-                        product_type='SMAP',
-                        platform='SMAP',
-                        instrument='SMAP',
+                        product_type='VCMCFG',
+                        platform='VIIRS',
+                        instrument='DNB',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

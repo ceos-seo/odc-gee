@@ -1,6 +1,6 @@
 """ Parses SRTM metadata from GEE. """
 import uuid
-from indexing.parsers.utils import METADATA
+from odc_ee.indexing.parsers.utils import METADATA
 
 BANDS = [('elevation', 'elevation')]
 

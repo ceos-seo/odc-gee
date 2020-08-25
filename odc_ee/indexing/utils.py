@@ -6,7 +6,6 @@ different collections.
 '''
 from collections import namedtuple
 import importlib
-import logging
 
 from tqdm import tqdm
 import numpy as np
@@ -31,20 +30,16 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
     from datacube.index.hl import Doc2Dataset
     from datacube.utils import changes
 
-    logging.info("Indexing %s", uri)
     resolver = Doc2Dataset(index, **kwargs)
     dataset, err = resolver(doc, uri)
-    if err is not None:
-        logging.error("%s", err)
-    else:
+    if err is None:
         try:
             if update and index.datasets.get(dataset.id):
                 index.datasets.update(dataset, {tuple(): changes.allow_any})
             else:
                 index.datasets.add(dataset, sources_policy=sources_policy)
-        except RuntimeError as _e:
-            err = _e
-            logging.error("Unhandled exception %s", _e)
+        except Exception as err:
+            pass
     return dataset, err
 
 class MakeMetadataDoc:
@@ -60,7 +55,7 @@ class MakeMetadataDoc:
 
     def __init__(self, parser):
         try:
-            self.parser = importlib.import_module(f'indexing.parsers.{parser}')
+            self.parser = importlib.import_module(f'odc_ee.indexing.parsers.{parser}')
         except ImportError:
             print(f'Parser ({parser}) could not be imported.')
 
@@ -126,7 +121,7 @@ def index_with_progress(years, *args, **kwargs):
 
 def ee_indexer(*args, update=False, response=None, image_sum=0):
     """Performs the parsing and indexing."""
-    from indexing.earthengine import EarthEngine
+    from odc_ee.earthengine import EarthEngine
 
     index_params = IndexParams(*args)
 

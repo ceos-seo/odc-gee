@@ -1,19 +1,17 @@
-""" Parses ERA5 metadata from GEE. """
+""" Parser for Landsat 8 metadata from GEE. """
 import uuid
-from indexing.parsers.utils import METADATA
+from odc_ee.indexing.parsers.utils import METADATA
 
-BANDS = [('mean_2m_air_temperature', 'mean_2m_air_temperature'),
-         ('minimum_2m_air_temperature', 'minimum_2m_air_temperature'),
-         ('maximum_2m_air_temperature', 'maximum_2m_air_temperature'),
-         ('dewpoint_2m_temperature', 'dewpoint_2m_temperature'),
-         ('total_precipitation', 'total_precipitation'),
-         ('surface_pressure', 'surface_pressure'),
-         ('mean_sea_level_pressure', 'mean_sea_level_pressure'),
-         ('u_component_of_wind_10m', 'u_component_of_wind_10m'),
-         ('v_component_of_wind_10m', 'v_component_of_wind_10m')]
+BANDS = [('population_count', 'population')]
 
 def parse(image_data, product=None):
-    """ Parser for ERA5 data. """
+    """
+    Extract useful information to index to datacube from the scene based metadata
+    :param mtl_data: metadata read from the MTL.txt
+    :param bucket_name: AWS public bucket name
+    :param object_key: Prefix to pass the particular path and row
+    :return:
+    """
     if product:
         _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product}/{image_data["name"]}'))
     else:
@@ -31,9 +29,9 @@ def parse(image_data, product=None):
 
     metadata = METADATA(id=_id,
                         creation_dt=creation_dt,
-                        product_type='ECMWF',
-                        platform='ERA5',
-                        instrument='ERA5',
+                        product_type='GPW',
+                        platform='GPW',
+                        instrument='GPW',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,

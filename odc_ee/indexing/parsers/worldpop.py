@@ -1,11 +1,8 @@
-""" Parser for DMSP OLS Nighttime Lights metadata from GEE. """
+""" Parser for Landsat 8 metadata from GEE. """
 import uuid
-from indexing.parsers.utils import METADATA
+from odc_ee.indexing.parsers.utils import METADATA, get_coords
 
-BANDS = [('avg_vis', 'avg_vis'),
-         ('stable_lights', 'stable_lights'),
-         ('cf_cvg', 'cf_cvg'),
-         ('avg_lights_x_pct', 'avg_lights_x_pct')]
+BANDS = [('population', 'population')]
 
 def parse(image_data, product=None):
     """
@@ -20,21 +17,16 @@ def parse(image_data, product=None):
     else:
         _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{image_data["name"]}'))
     creation_dt = image_data['startTime']
-    coord = {'ul': {'lon': -180.0, 'lat': 90.0},
-             'ur': {'lon': 180.0, 'lat': 90.0},
-             'll': {'lon': -180.0, 'lat': -90.0},
-             'lr': {'lon': 180.0, 'lat': -90.0}}
-    geo_ref_points = {'ul': {'x': -180.0, 'y': 90.0},
-                      'ur': {'x': 180.0, 'y': 90.0},
-                      'll': {'x': -180.0, 'y': -90.0},
-                      'lr': {'x': 180.0, 'y': -90.0}}
+    coord = get_coords(image_data['geometry']['coordinates'][0], rot=False)
+    geo_ref_points = get_coords(image_data['geometry']['coordinates'][0],
+                                spatial=True, rot=False)
     spatial_reference = int(image_data['bands'][0]['grid']['crsCode'].split(':')[1])
 
     metadata = METADATA(id=_id,
                         creation_dt=creation_dt,
-                        product_type='NIGHTTIME_LIGHTS',
-                        platform='DMSP',
-                        instrument='OLS',
+                        product_type='WORLDPOP',
+                        platform='WORLDPOP',
+                        instrument='WORLDPOP',
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,
