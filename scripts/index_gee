@@ -8,13 +8,14 @@ import click
 import numpy as np
 
 from odc_gee.earthengine import EarthEngine
+from odc_gee.logger import Logger
 from odc_gee.indexing.utils import gee_indexer, index_with_progress
 import datacube
 
-DC = datacube.Datacube(app='EE_Indexing_Script')
+DC = datacube.Datacube(app='GEE_Indexing_Script')
 EE = EarthEngine()
 HOME = os.getenv("HOME")
-REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/datacube-core/regions.json')
+REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.json')
 WORLD_LATITUDE = (-90, 90)
 WORLD_LONGITUDE = (-180, 180)
 
@@ -27,14 +28,19 @@ WORLD_LONGITUDE = (-180, 180)
               help="The parser to use for the product being indexed.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
-@click.option("--update_product", is_flag=True, flag_value=True,
+@click.option("--update_product", "-u", is_flag=True, flag_value=True,
               help="Updates the product in the index.")
-@click.option("--rolling_update", is_flag=True, flag_value=True,
+@click.option("--rolling_update", "-r", is_flag=True, flag_value=True,
               help="Updates the product with latest available times.")
 @click.option("--progress", is_flag=True, flag_value=True,
               help="Show progress bar.")
+@click.option("--verbosity", "-v", required=False, type=click.INT, default=1,
+              help="The level of verbosity to use {0, 1, 2, 3}")
 def index_gee(**kwargs):
     """This script indexes GEE products."""
+    logger = Logger(name="index_gee", base_dir=f'{HOME}/.local/share/odc-gee',
+                    verbosity=kwargs['verbosity'])
+
     try:
         if kwargs['region']:
             with open(REGIONS_CONFIG, 'r') as _f:
@@ -82,12 +88,12 @@ def index_gee(**kwargs):
             filters.update(startTime=f'{start_time}Z',
                            endTime=f'{end_time}Z')
             _sum = gee_indexer(kwargs['asset'], kwargs['product'], kwargs['parser'],
-                              filters, update=kwargs['update_product'])[-1]
+                               filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after indexing: {}'\
                        .format(len(DC.find_datasets(product=kwargs['product']))))
     except Exception:
-        print(f'Failed to index {kwargs["product"]}.')
+        logger.log(f'Failed to index {kwargs["product"]}.', lvl=logger.lvl.WARNING)
 
 if __name__ == '__main__':
     index_gee()
