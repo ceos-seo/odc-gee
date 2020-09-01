@@ -42,6 +42,7 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
             pass
     return dataset, err
 
+# TODO: Change this to use EO3 for better compatibility with GEE metadata.
 class MakeMetadataDoc:
     ''' A helper object to create the dataset document.
 

@@ -18,6 +18,8 @@ Metadata = namedtuple('Metadata', ','.join(['id',
                                             'path',
                                             'bands']))
 
+# TODO: Need to account for WKT given instead of CRS.
+# TODO: Change dataset definition to EO3 format so the following code can be removed.
 def get_geo_ref_points(coords, crs):
     ''' Converts spatiotemporal coordinates (EPSG: 4326) to spatial coordinates.
 
@@ -63,8 +65,15 @@ def get_coords(geometry, spatial=False, rot=True):
         }
     '''
 
+    array = np.array(geometry, dtype=np.float32)
 
-    array = np.array(geometry)
+    # Handle special GEE Infinity GeoJSON responses
+    if np.isfinite(array).sum() != array.size:
+        return {'ul': {'lon': -180.0, 'lat': 90.0},
+                'ur': {'lon': 180.0, 'lat': 90.0},
+                'll': {'lon': -180.0, 'lat': -90.0},
+                'lr': {'lon': 180.0, 'lat': -90.0}
+               }
     if rot:
         xmin = array[(..., 0)].argmin()
         ymin = array[(..., 1)].argmin()
