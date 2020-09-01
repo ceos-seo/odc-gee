@@ -9,7 +9,7 @@ import numpy as np
 
 from odc_gee.earthengine import EarthEngine
 from odc_gee.logger import Logger
-from odc_gee.indexing import gee_indexer, index_with_progress
+from odc_gee.indexing import indexer, index_with_progress
 import datacube
 
 DC = datacube.Datacube(app='GEE_Indexing_Script')
@@ -85,7 +85,7 @@ def index_gee(**kwargs):
                        .format(len(DC.find_datasets(product=kwargs['product']))))
             filters.update(startTime=f'{start_time}Z',
                            endTime=f'{end_time}Z')
-            _sum = gee_indexer(kwargs['asset'], kwargs['product'],
+            _sum = indexer(kwargs['asset'], kwargs['product'],
                                filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after  {}'\

@@ -88,10 +88,10 @@ def index_with_progress(years, *args, **kwargs):
                                endTime=f'{_r[idx+1].isoformat()}Z')
             else:
                 break
-            resp, _sum = gee_indexer(response=resp, image_sum=_sum, *args, **kwargs)
+            resp, _sum = indexer(response=resp, image_sum=_sum, *args, **kwargs)
     return resp, _sum
 
-def gee_indexer(*args, update=False, response=None, image_sum=0):
+def indexer(*args, update=False, response=None, image_sum=0):
     """Performs the parsing and """
     from odc_gee.earthengine import EarthEngine
 
