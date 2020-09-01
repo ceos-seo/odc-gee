@@ -5,15 +5,13 @@ It contains multiple helper methods and dataset document specifications for
 different collections.
 '''
 from collections import namedtuple
-import importlib
 
 from tqdm import tqdm
-import numpy as np
 import pandas as pd
 
 import datacube
 
-IndexParams = namedtuple('IndexParams', 'asset product parser filters')
+IndexParams = namedtuple('IndexParams', 'asset product filters')
 
 def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
     ''' Add a dataset document to the index database.
@@ -43,64 +41,37 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
     return dataset, err
 
 # TODO: Change this to use EO3 for better compatibility with GEE metadata.
-class MakeMetadataDoc:
-    ''' A helper object to create the dataset document.
-
-    Will help parse various metadata for GEE collections. Then it will
-    create an ODC dataset metadata document. This document can then be
-    used to index the GEE dataset as normal.
-
-    Attributes:
-        bands: A dictionary of the band maps for various products.
-    '''
-
-    def __init__(self, parser):
-        try:
-            self.parser = importlib.import_module(f'odc_gee.indexing.parsers.{parser}')
-        except ImportError:
-            print(f'Parser ({parser}) could not be imported.')
-
-    def __call__(self, image_data, product=None):
-        """
-        Extract useful information to index to datacube from the scene based metadata
-        :param mtl_data: metadata read from the MTL.txt
-        :param bucket_name: AWS public bucket name
-        :param object_key: Prefix to pass the particular path and row
-        :return:
-        """
-        metadata = self.parser.parse(image_data, product=product)
-        doc = {'id': metadata.id,
-               'creation_dt': metadata.creation_dt,
-               'product_type': metadata.product_type,
-               'platform': {'code': metadata.platform},
-               'instrument': {'name': metadata.instrument},
-               'format': {'name': metadata.format},
-               'extent': {
-                   'from_dt': metadata.from_dt,
-                   'to_dt': metadata.to_dt,
-                   'center_dt': metadata.center_dt,
-                   'coord': metadata.coord,
-                   },
-               'grid_spatial': {
-                   'projection': {
-                       'geo_ref_points': metadata.geo_ref_points,
-                       'spatial_reference': 'EPSG:%d' % metadata.spatial_reference,
-                       }
-                   },
-               'image': {
-                   'bands': {
-                       band[1]: {
-                           'path': 'EEDAI:' + metadata.path + ':' + band[0],
-                           'layer': 1,
-                           } for band in metadata.bands
-                       }
-                   },
-               'lineage': {'source_datasets': {}}}
-        return doc
-
-    def get_bands(self):
-        """ Get the bands from the parser. """
-        return self.parser.BANDS
+def make_metadata_doc(image_data, product):
+    from odc_gee.parser import parse
+    metadata = parse(image_data, product)
+    doc = {'id': metadata.id,
+           'creation_dt': metadata.creation_dt,
+           'product_type': metadata.product_type,
+           'platform': {'code': metadata.platform},
+           'instrument': {'name': metadata.instrument},
+           'format': {'name': metadata.format},
+           'extent': {
+               'from_dt': metadata.from_dt,
+               'to_dt': metadata.to_dt,
+               'center_dt': metadata.center_dt,
+               'coord': metadata.coord,
+               },
+           'grid_spatial': {
+               'projection': {
+                   'geo_ref_points': metadata.geo_ref_points,
+                   'spatial_reference': metadata.spatial_reference,
+                   }
+               },
+           'image': {
+               'bands': {
+                   name: {
+                       'path': 'EEDAI:' + metadata.path + ':' + band,
+                       'layer': 1,
+                       } for (name, band) in metadata.bands
+                   }
+               },
+           'lineage': {'source_datasets': {}}}
+    return doc
 
 def index_with_progress(years, *args, **kwargs):
     """Indexes with progress bar."""
@@ -113,7 +84,7 @@ def index_with_progress(years, *args, **kwargs):
                               desc=f'Progress for {years[year]}'):
             resp = None
             if idx < len(_r):
-                args[1].update(startTime=f'{date.isoformat()}Z',
+                args[2].update(startTime=f'{date.isoformat()}Z',
                                endTime=f'{_r[idx+1].isoformat()}Z')
             else:
                 break
@@ -121,7 +92,7 @@ def index_with_progress(years, *args, **kwargs):
     return resp, _sum
 
 def gee_indexer(*args, update=False, response=None, image_sum=0):
-    """Performs the parsing and indexing."""
+    """Performs the parsing and """
     from odc_gee.earthengine import EarthEngine
 
     index_params = IndexParams(*args)
@@ -134,15 +105,13 @@ def gee_indexer(*args, update=False, response=None, image_sum=0):
         _ee = EarthEngine()
     except RuntimeError:
         print('Could not connect to GEE.')
-    try:
-        parser = MakeMetadataDoc(index_params.parser)
-    except NotImplementedError:
-        print(f'Could not find parser: {index_params.parser}')
     if index_params.product is None\
        or not _dc.list_products().name.isin([index_params.product]).any():
         raise ValueError("Missing product.")
 
-    required_bands = np.array(parser.get_bands())[..., 0]
+    product = _dc.list_products().query(f'name=="{index_params.product}"')
+    required_bands = _dc.list_measurements()\
+                     .query(f'product=="{index_params.product}"').name.values
     try:
         while(response is None or 'nextPageToken' in response.keys()):
             if response and 'nextPageToken' in response.keys():
@@ -158,7 +127,7 @@ def gee_indexer(*args, update=False, response=None, image_sum=0):
                     bands = [band['id'] for band in image['bands']]
                     band_length = len(list(filter(lambda x: x in required_bands, bands)))
                     if  band_length == len(required_bands):
-                        doc = parser(image, product=index_params.product)
+                        doc = make_metadata_doc(image, product)
                         add_dataset(doc, f'EEDAI:{image["name"]}',
                                     _dc.index, products=[index_params.product], update=update)
                 image_sum = image_sum + len(response['images'])

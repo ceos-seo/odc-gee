@@ -9,7 +9,7 @@ import numpy as np
 
 from odc_gee.earthengine import EarthEngine
 from odc_gee.logger import Logger
-from odc_gee.indexing.utils import gee_indexer, index_with_progress
+from odc_gee.indexing import gee_indexer, index_with_progress
 import datacube
 
 DC = datacube.Datacube(app='GEE_Indexing_Script')
@@ -24,8 +24,6 @@ WORLD_LONGITUDE = (-180, 180)
               help="The GEE asset ID.")
 @click.option("--product", required=True, type=click.STRING,
               help="The ODC product name to index.")
-@click.option("--parser", required=True, type=click.STRING,
-              help="The parser to use for the product being indexed.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,
@@ -74,23 +72,23 @@ def index_gee(**kwargs):
                                         for date in asset_info.json()['properties']['date_range']]
 
         if kwargs['progress']:
-            click.echo('Total in database before indexing: {}'\
+            click.echo('Total in database before  {}'\
                        .format(len(DC.find_datasets(product=kwargs['product']))))
-            _sum = index_with_progress(years, kwargs['asset'], kwargs['product'], kwargs['parser'],
+            resp, _sum = index_with_progress(years, kwargs['asset'], kwargs['product'],
                                        filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
-            click.echo('Total in database after indexing: {}'\
+            click.echo('Total in database after  {}'\
                        .format(len(DC.find_datasets(product=kwargs['product']))))
 
         else:
-            click.echo('Total in database before indexing: {}'\
+            click.echo('Total in database before  {}'\
                        .format(len(DC.find_datasets(product=kwargs['product']))))
             filters.update(startTime=f'{start_time}Z',
                            endTime=f'{end_time}Z')
-            _sum = gee_indexer(kwargs['asset'], kwargs['product'], kwargs['parser'],
+            _sum = gee_indexer(kwargs['asset'], kwargs['product'],
                                filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
-            click.echo('Total in database after indexing: {}'\
+            click.echo('Total in database after  {}'\
                        .format(len(DC.find_datasets(product=kwargs['product']))))
     except Exception:
         logger.log(f'Failed to index {kwargs["product"]}.', lvl=logger.lvl.WARNING)
