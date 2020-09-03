@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# pylint: disable=import-error,broad-except
 """Indexes GEE Products."""
 from datetime import datetime
 import json
@@ -7,13 +8,11 @@ import os
 import click
 import numpy as np
 
-from odc_gee.earthengine import EarthEngine
-from odc_gee.logger import Logger
+from datacube import Datacube
+from odc_gee.earthengine import EarthEngine, to_geojson
 from odc_gee.indexing import indexer, index_with_progress
-import datacube
+from odc_gee.logger import Logger
 
-DC = datacube.Datacube(app='GEE_Indexing_Script')
-EE = EarthEngine()
 HOME = os.getenv("HOME")
 REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.json')
 WORLD_LATITUDE = (-90, 90)
@@ -23,7 +22,7 @@ WORLD_LONGITUDE = (-180, 180)
 @click.option("--asset", required=True, type=click.STRING,
               help="The GEE asset ID.")
 @click.option("--product", required=True, type=click.STRING,
-              help="The ODC product name to index.")
+              help="The Odatacube product name to index.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,
@@ -36,30 +35,32 @@ WORLD_LONGITUDE = (-180, 180)
               help="The level of verbosity to use {0, 1, 2, 3}")
 def index_gee(**kwargs):
     """This script indexes GEE products."""
+    datacube = Datacube(app='GEE_Indexing_Script')
+    earthengine = EarthEngine()
     logger = Logger(name="index_gee", base_dir=f'{HOME}/.local/share/odc-gee',
                     verbosity=kwargs['verbosity'])
 
     try:
         if kwargs['region']:
-            with open(REGIONS_CONFIG, 'r') as _f:
-                regions = json.loads(_f.read())
-            filters = dict(region=EE.to_geojson(**regions[kwargs['region']]))
+            with open(REGIONS_CONFIG, 'r') as _file:
+                regions = json.loads(_file.read())
+            filters = dict(region=to_geojson(**regions[kwargs['region']]))
         else:
-            filters = dict(region=EE.to_geojson(latitude=WORLD_LATITUDE,
-                                                longitude=WORLD_LONGITUDE))
+            filters = dict(region=to_geojson(latitude=WORLD_LATITUDE,
+                                             longitude=WORLD_LONGITUDE))
 
-        asset_info = EE.get(kwargs['asset'], _print=False)
+        asset_info = earthengine.get(kwargs['asset'])
         if kwargs['rolling_update']:
             if kwargs['progress']:
-                year = np.sort(DC.load(product=kwargs['product'],
-                                       measurements=[])).astype('datetime64[ms]').item().year
+                year = np.sort(datacube.load(product=kwargs['product'],
+                                             measurements=[])).astype('datetime64[ms]').item().year
                 if year == datetime.utcnow().year:
                     years = range(year, year+1)
                 else:
                     years = range(year, datetime.utcnow().year)
             else:
-                start_time = np.sort(DC.load(product=kwargs['product'],
-                                             measurements=[]).time.values)[-1]\
+                start_time = np.sort(datacube.load(product=kwargs['product'],
+                                                   measurements=[]).time.values)[-1]\
                              .astype('datetime64[ms]').item().isoformat()
                 end_time = datetime.utcnow().isoformat()
         else:
@@ -73,23 +74,23 @@ def index_gee(**kwargs):
 
         if kwargs['progress']:
             click.echo('Total in database before  {}'\
-                       .format(len(DC.find_datasets(product=kwargs['product']))))
-            resp, _sum = index_with_progress(years, kwargs['asset'], kwargs['product'],
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+            _sum = index_with_progress(years, kwargs['asset'], kwargs['product'],
                                        filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after  {}'\
-                       .format(len(DC.find_datasets(product=kwargs['product']))))
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
 
         else:
             click.echo('Total in database before  {}'\
-                       .format(len(DC.find_datasets(product=kwargs['product']))))
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
             filters.update(startTime=f'{start_time}Z',
                            endTime=f'{end_time}Z')
             _sum = indexer(kwargs['asset'], kwargs['product'],
-                               filters, update=kwargs['update_product'])[-1]
+                           filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after  {}'\
-                       .format(len(DC.find_datasets(product=kwargs['product']))))
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
     except Exception:
         logger.log(f'Failed to index {kwargs["product"]}.', lvl=logger.lvl.WARNING)
 

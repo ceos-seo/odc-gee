@@ -12,13 +12,12 @@ echo "Updating products..."
 
 asset='ECMWF/ERA5/DAILY'
 product='era5_daily_google'
-parser='era5'
+
 echo "Updating $product"
-index_gee --asset $asset --product $product --rolling_update 
+index_gee --asset $asset --product $product --rolling_update
 
 asset='LANDSAT/LE07/C01/T1_SR'
 product='ls7_google'
-parser='ls7'
 regions=()
 regions+=(
 el_salvador
@@ -33,7 +32,6 @@ done
 
 asset='LANDSAT/LC08/C01/T1_SR'
 product='ls8_google'
-parser='ls8'
 regions=()
 regions+=(
 el_salvador
@@ -45,17 +43,16 @@ vanuatu
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update 
+        --region $region --rolling_update
 done
 
 #asset='JAXA/ALOS/PALSAR/YEARLY/SAR'
 #product='palsar_yearly_google'
 #parser='alos'
-#index_gee --asset $asset --product $product --rolling_update 
+#index_gee --asset $asset --product $product --rolling_update
 
 asset='COPERNICUS/S1_GRD'
 product='s1_google'
-parser='s1'
 regions=()
 regions+=(
 el_salvador
@@ -67,12 +64,11 @@ vanuatu
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update 
+        --region $region --rolling_update
 done
 
 asset='COPERNICUS/S2_SR'
 product='s2_google'
-parser='s2'
 regions=()
 regions+=(
 el_salvador
@@ -84,7 +80,7 @@ vanuatu
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update 
+        --region $region --rolling_update
 done
 
 echo "Finished update."

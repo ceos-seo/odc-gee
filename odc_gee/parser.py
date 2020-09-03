@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 """ Parsing tools for metadata from Google Earth Engine API. """
 from collections import namedtuple
 import uuid
@@ -6,7 +7,6 @@ import numpy as np
 
 from datacube.utils.geometry import polygon_from_transform, Geometry
 from datacube.utils.geometry.tools import Affine
-import datacube
 
 Metadata = namedtuple('Metadata', ','.join(['id',
                                             'creation_dt',
@@ -51,8 +51,7 @@ def get_extents(points, spatial=False):
         return {key: dict(x=x, y=y) for key, (x, y) in zip(keys, points)}
     return {key: dict(lon=x, lat=y) for key, (x, y) in zip(keys, points)}
 
-def parse(image_data, product):
-    measurements = _dc.list_measurements().query(f'product=="{product.name.item()}"')
+def parse(image_data, product, measurements):
     bands = [aliases[0] for aliases in measurements.aliases.values]
     _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name.item()}/{image_data["name"]}'))
     creation_dt = image_data['startTime']

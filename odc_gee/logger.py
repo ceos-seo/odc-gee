@@ -1,3 +1,4 @@
+# pylint: disable=logging-format-interpolation
 """ Module for useful logging functionality. """
 from os import path
 from pathlib import Path
@@ -16,25 +17,25 @@ class Logger:
         self.logger.setLevel(self.lvl.DEBUG)
 
         # Setup logging to log.txt file
-        self._fh = logging.handlers.TimedRotatingFileHandler(f'{base_dir}/log/{name}.log',
-                                                             when='d', interval=30,
-                                                             backupCount=12)
-        self._fh.setLevel(self.lvl.DEBUG)
+        self.file_handler = logging.handlers.TimedRotatingFileHandler(f'{base_dir}/log/{name}.log',
+                                                                      when='d', interval=30,
+                                                                      backupCount=12)
+        self.file_handler.setLevel(self.lvl.DEBUG)
 
         # Setup logging to stdout based on verbosity
         verbosity = self.lvl.CRITICAL - (verbosity * 10)
-        self._ch = logging.StreamHandler()
-        self._ch.setLevel(verbosity)
+        self.stdout_handler = logging.StreamHandler()
+        self.stdout_handler.setLevel(verbosity)
 
         # Format the output message
         self.formatter = logging.Formatter(fmt='%(asctime)s %(name)s: %(levelname)s: %(message)s',
                                            datefmt='%b %d %H:%M:%S')
-        self._fh.setFormatter(self.formatter)
-        self._ch.setFormatter(self.formatter)
+        self.file_handler.setFormatter(self.formatter)
+        self.stdout_handler.setFormatter(self.formatter)
 
         # Setup the logging handler
-        self.logger.addHandler(self._fh)
-        self.logger.addHandler(self._ch)
+        self.logger.addHandler(self.file_handler)
+        self.logger.addHandler(self.stdout_handler)
 
     def log(self, msg, lvl=20):
         """Log a message based on the level passed.
