@@ -16,51 +16,36 @@ product='era5_daily_google'
 echo "Updating $product"
 index_gee --asset $asset --product $product --rolling_update
 
-asset='LANDSAT/LE07/C01/T1_SR'
-product='ls7_google'
 regions=()
 regions+=(
 el_salvador
 ghana
 nsw
 )
+
+asset='LANDSAT/LE07/C01/T1_SR'
+product='ls7_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
         --region $region --rolling_update
 done
+
+regions+=(
+tanzania
+vanuatu
+)
 
 asset='LANDSAT/LC08/C01/T1_SR'
 product='ls8_google'
-regions=()
-regions+=(
-el_salvador
-ghana
-nsw
-tanzania
-vanuatu
-)
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
         --region $region --rolling_update
 done
 
-#asset='JAXA/ALOS/PALSAR/YEARLY/SAR'
-#product='palsar_yearly_google'
-#parser='alos'
-#index_gee --asset $asset --product $product --rolling_update
-
 asset='COPERNICUS/S1_GRD'
 product='s1_google'
-regions=()
-regions+=(
-el_salvador
-ghana
-nsw
-tanzania
-vanuatu
-)
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
@@ -69,14 +54,6 @@ done
 
 asset='COPERNICUS/S2_SR'
 product='s2_google'
-regions=()
-regions+=(
-el_salvador
-ghana
-nsw
-tanzania
-vanuatu
-)
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \

@@ -23,7 +23,6 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
         index: An instance of a datacube index.
         sources_policy (optional): The source policy to be checked.
         update: Update datasets if they already exist.
-
     Returns: The dataset to be indexed and any errors encountered.
     '''
     from datacube.index.hl import Doc2Dataset
@@ -43,6 +42,14 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
 
 # TODO: Change this to use EO3 for better compatibility with GEE metadata.
 def make_metadata_doc(*args, **kwargs):
+    """ Makes the dataset document from the parsed metadata.
+
+    Args:
+        image_data (dict): the image metadata to parse.
+        product (pandas.DataFrame): the product information from the ODC index.
+        meaurements (pandas.DataFrame): the measurements information from the ODC index.
+    Returns: a dictionary of the dataset document.
+    """
     from odc_gee.parser import parse
     metadata = parse(*args, **kwargs)
     doc = {'id': metadata.id,
@@ -75,7 +82,18 @@ def make_metadata_doc(*args, **kwargs):
     return doc
 
 def index_with_progress(years, *args, **kwargs):
-    """Indexes with progress bar."""
+    """ Indexes with progress bar.
+
+    Args:
+        years (list): the list of years being indexed.
+        asset (str): the asset identifier to index.
+        product (str): the product name to index.
+        filters (dict): API filters to use when searching for datasets to index.
+        update (bool): will update existing datasets if set True.
+    Returns:
+        A tuple of the Requests response from the API query
+        and the recursive sum of datasets found.
+    """
     _sum = 0
     for year in tqdm(range(len(years)), desc='Yearly Progress'):
         _range = pd.date_range(f'{years[year]}-01-01',
@@ -93,7 +111,19 @@ def index_with_progress(years, *args, **kwargs):
     return resp, _sum
 
 def indexer(*args, update=False, response=None, image_sum=0):
-    """Performs the parsing and """
+    """ Performs the parsing and
+
+    Args:
+        asset (str): the asset identifier to index.
+        product (str): the product name to index.
+        filters (dict): API filters to use when searching for datasets to index.
+        update (bool): will update existing datasets if set True.
+        response: a Requests response from a previous API result.
+        image_sum (int): the current sum of images indexed.
+    Returns:
+        A tuple of the Requests response from the API query
+        and the recursive sum of datasets found.
+    """
     from odc_gee.earthengine import EarthEngine
 
     index_params = IndexParams(*args)

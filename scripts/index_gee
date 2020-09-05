@@ -22,7 +22,7 @@ WORLD_LONGITUDE = (-180, 180)
 @click.option("--asset", required=True, type=click.STRING,
               help="The GEE asset ID.")
 @click.option("--product", required=True, type=click.STRING,
-              help="The Odatacube product name to index.")
+              help="The datacube product name to index.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,

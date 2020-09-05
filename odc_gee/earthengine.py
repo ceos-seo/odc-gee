@@ -1,4 +1,5 @@
-# pylint: disable=import-error
+# pylint: disable=import-error,dangerous-default-value,invalid-name
+""" Module for Google Earth Engine tools. """
 from datetime import datetime
 from pprint import pprint
 import io
@@ -16,6 +17,14 @@ SCOPES = ['https://www.googleapis.com/auth/earthengine',
 API_KEY = os.getenv('EE_API_KEY')
 
 def to_geojson(latitude, longitude):
+    """ Creates a GeoJSON dictionary.
+
+    Args:
+        latitude (str)
+        longitude (str)
+    Returns:
+        A dictionary of the GeoJSON.
+    """
     return dict(type="Polygon",
                 coordinates=[[[longitude[0],
                                latitude[0]],
@@ -29,6 +38,15 @@ def to_geojson(latitude, longitude):
                                latitude[0]]]])
 
 class EarthEngine:
+    """ An instance for interfacing with the Earth Engine REST API.
+
+    Attrs:
+        credentials (str): the location of the service account credentials for the API.
+        earthengine (googleapiclient.discovery.Resource): the API interface.
+        session (google.auth.transport.requests.AuthorizedSession):
+            a requests session class with credentials.
+        project (str): the project name to access in Earth Engine.
+    """
     def __init__(self,
                  project='earthengine-public',
                  credentials=os.getenv('GOOGLE_APPLICATION_CREDENTIALS')):
@@ -43,24 +61,50 @@ class EarthEngine:
         self.project = 'projects/{}'.format(project)
 
     def get(self, asset_id, **kwargs):
+        """ Gets detailed information about an asset.
+
+        Args:
+            asset_id (str): the asset identifier to get.
+            print (bool): will print the asset information if True.
+        Returns: the Requests response for the API query.
+        """
+        _print = kwargs.pop('print') if kwargs.get('print') else False
         name = '{}/assets/{}'.format(self.project, asset_id)
         url = self.earthengine.projects().assets().get(name=name).uri
         response = self.session.get(url)
 
-        if kwargs.get('print'):
+        if _print:
             pprint(json.loads(response.content))
         return response
 
     def list_images(self, asset_id, **kwargs):
+        """ Lists the images in an image collection asset.
+
+        Args:
+            asset_id (str): the asset identifier for the collection.
+            print (bool): will print the asset information if True.
+        Optional Arguments: extra arguments will be passed to the API query.
+        Returns: the Requests response for the API query.
+        """
+        _print = kwargs.pop('print') if kwargs.get('print') else False
         name = '{}/assets/{}'.format(self.project, asset_id)
         url = self.earthengine.projects().assets().listImages(parent=name, **kwargs).uri
         response = self.session.get(url)
 
-        if kwargs.get('print'):
+        if _print:
             pprint(json.loads(response.content))
         return response
 
     def get_pixels(self, asset_id, **kwargs):
+        """ Fetches pixels from an image asset.
+
+        Args:
+            asset_id (str): the asset identifier for the image.
+            print (bool): will
+        Optional Arguments: extra arguments will be passed to the API query.
+        Returns: the image array.
+        """
+        _print = kwargs.pop('print') if kwargs.get('print') else False
         name = '{}/assets/{}'.format(self.project, asset_id)
         body = json.dumps(kwargs)
         url = self.earthengine.projects().assets().getPixels(name=name).uri
@@ -68,7 +112,7 @@ class EarthEngine:
         pixels_response = self.session.post(url, body)
         pixels_content = pixels_response.content
 
-        if kwargs.get('print'):
+        if _print:
             array = numpy.load(io.BytesIO(pixels_content))
             print('Shape: %s' % (array.shape, ))
             print('Data:')
@@ -77,8 +121,22 @@ class EarthEngine:
 
     def get_image(self, asset_id, fileFormat='PNG', bandIds=['B4', 'B3', 'B2'],
                   grid={'dimensions':{'width':256, 'height':256}}, **kwargs):
-        name = '{}/assets/{}'.format(self.project, asset_id)
-        url = self.earthengine.projects().assets().getPixels(name=name).uri
+        """ Gets an image using the getPixels API query.
+
+        Args:
+            asset_id (str): the asset identifier of the image to fetch.
+            fileFormat (str): the format of the file.
+                default: 'PNG'
+            bandIds (list): a list of IDs for the bands to get.
+                default: ['B1', 'B3', 'B2']
+            grid (dict): the grid dimensions of the image.
+                default: {'dimensions': {'width': 256, 'height': 256}}
+            print (bool): will print the image using Ipython.
+        Returns: the image content.
+        """
+        _print = kwargs.pop('print') if kwargs.get('print') else False
+        url = self.earthengine.projects().assets()\
+              .getPixels(name=f'{self.project}/assets/{asset_id}').uri
         asset = json.loads(self.get(asset_id).content)
         kwargs['bandIds'] = bandIds
         kwargs['grid'] = grid
@@ -98,6 +156,6 @@ class EarthEngine:
             _file.write(image_content)
 
         print(fname)
-        if kwargs.get('print'):
+        if _print:
             return Image(image_content)
         return image_content

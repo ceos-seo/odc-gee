@@ -24,6 +24,14 @@ Metadata = namedtuple('Metadata', ','.join(['id',
                                             'bands']))
 
 def geometry_isfinite(geometry):
+    """ Handles invalid GeoJSON containing Infinite values.
+
+    Args:
+        geometry (list): the coordinates of the GeoJSON.
+    Returns:
+        True if the coordinates contain Infinte values
+        False if the coordinate do not.
+    """
     array = np.array(geometry['coordinates'][0], dtype=np.float32)
     if np.isfinite(array).sum() == array.size:
         return True
@@ -33,9 +41,8 @@ def get_extents(points, spatial=False):
     ''' Gets the corner extents of a scene.
 
     Args:
-        geometry: An array of coordinates defining a rectangular polygon.
+        points: the points for the corners of a scene.
         spatial: A bool to determine the coordinate type.
-        rot: A bool to determine the rotation of the scene.
 
     Returns:
         A dict map of the coordinates. For example:
@@ -52,6 +59,15 @@ def get_extents(points, spatial=False):
     return {key: dict(lon=x, lat=y) for key, (x, y) in zip(keys, points)}
 
 def parse(image_data, product, measurements):
+    """ Parses the GEE metadata for ODC use.
+
+    Args:
+        image_data: the image metadata to parse.
+        product: the product information from the ODC index.
+        measurements: the measurements information from the ODC index for the product.
+
+    Returns: a namedtuple of the data required by ODC for indexing.
+    """
     bands = [aliases[0] for aliases in measurements.aliases.values]
     _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name.item()}/{image_data["name"]}'))
     creation_dt = image_data['startTime']
