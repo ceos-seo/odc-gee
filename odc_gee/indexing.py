@@ -37,7 +37,7 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
             else:
                 index.datasets.add(dataset, sources_policy=sources_policy)
         except Exception as err:
-            pass
+            print(err)
     return dataset, err
 
 # TODO: Change this to use EO3 for better compatibility with GEE metadata.
@@ -128,14 +128,9 @@ def indexer(*args, update=False, response=None, image_sum=0):
 
     index_params = IndexParams(*args)
 
-    try:
-        datacube = Datacube(app='EE_Indexer')
-    except RuntimeError:
-        print('Could not connect to ODC.')
-    try:
-        earthengine = EarthEngine()
-    except RuntimeError:
-        print('Could not connect to GEE.')
+    datacube = Datacube(app='EE_Indexer')
+    earthengine = EarthEngine()
+
     if index_params.product is None\
        or not datacube.list_products().name.isin([index_params.product]).any():
         raise ValueError("Missing product.")
@@ -143,26 +138,25 @@ def indexer(*args, update=False, response=None, image_sum=0):
     product = datacube.list_products().query(f'name=="{index_params.product}"')
     measurements = datacube.list_measurements()\
                    .query(f'product=="{index_params.product}"')
-    try:
-        while(response is None or 'nextPageToken' in response.keys()):
-            if response and 'nextPageToken' in response.keys():
-                index_params.filters.update(pageToken=response['nextPageToken'])
-                response = earthengine.list_images(index_params.asset,
-                                                   **index_params.filters).json()
-                index_params.filters.pop('pageToken')
-            else:
-                response = earthengine.list_images(index_params.asset,
-                                                   **index_params.filters).json()
-            if len(response) != 0:
-                for image in response['images']:
-                    bands = [band['id'] for band in image['bands']]
-                    band_length = len(list(filter(lambda x: x in measurements.name.values, bands)))
-                    if  band_length == len(measurements.name.values):
-                        doc = make_metadata_doc(image, product, measurements)
-                        add_dataset(doc, f'EEDAI:{image["name"]}',
-                                    datacube.index, products=[index_params.product], update=update)
-                image_sum = image_sum + len(response['images'])
-    except RuntimeError as err:
-        print(err)
+    required_bands = [aliases[0] for aliases in measurements.aliases.values]
+
+    while(response is None or 'nextPageToken' in response.keys()):
+        if response and 'nextPageToken' in response.keys():
+            index_params.filters.update(pageToken=response['nextPageToken'])
+            response = earthengine.list_images(index_params.asset,
+                                               **index_params.filters).json()
+            index_params.filters.pop('pageToken')
+        else:
+            response = earthengine.list_images(index_params.asset,
+                                               **index_params.filters).json()
+        if len(response) != 0:
+            for image in response['images']:
+                bands = [band['id'] for band in image['bands']]
+                band_length = len(list(filter(lambda x: x in required_bands, bands)))
+                if  band_length == len(required_bands):
+                    doc = make_metadata_doc(image, product, measurements)
+                    add_dataset(doc, f'EEDAI:{image["name"]}',
+                                datacube.index, products=[index_params.product], update=update)
+            image_sum = image_sum + len(response['images'])
 
     return response, image_sum

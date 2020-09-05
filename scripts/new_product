@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Script for creating product definition files."""
+# TODO: Should make this populate fields using the API
 import click
 import yaml
 
