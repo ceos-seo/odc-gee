@@ -14,7 +14,10 @@ import numpy
 
 SCOPES = ['https://www.googleapis.com/auth/earthengine',
           'https://www.googleapis.com/auth/cloud-platform']
-API_KEY = os.getenv('EE_API_KEY')
+API_KEY = os.getenv('EE_API_KEY', None)
+if not API_KEY:
+    raise EnvironmentError('EE_API_KEY environment variable undefined.')
+HOME = os.getenv('HOME')
 
 def to_geojson(latitude, longitude):
     """ Creates a GeoJSON dictionary.
@@ -49,7 +52,8 @@ class EarthEngine:
     """
     def __init__(self,
                  project='earthengine-public',
-                 credentials=os.getenv('GOOGLE_APPLICATION_CREDENTIALS')):
+                 credentials=os.getenv('GOOGLE_APPLICATION_CREDENTIALS',
+                                       f'{HOME}/.config/odc-gee/credentials.json')):
         self.credentials = service_account.Credentials.from_service_account_file(
             credentials, scopes=SCOPES)
         self.earthengine = googleapiclient.discovery.build(

@@ -18,10 +18,11 @@ The scripts and python modules in this package use the following environment
 variables:
 
 * `DATACUBE_CONFIG_PATH`: the ODC configuration file.
-* `GOOGLE_APPLICATION_CREDENTIALS`: the service account credentials JSON file.
+* `GOOGLE_APPLICATION_CREDENTIALS`: the service account credentials JSON file
+  (default: ~/.config/odc-gee/credentials.json).
 * `EE_API_KEY`: the API key for the GEE API.
 * `REGIONS_CONFIG`: a JSON file for storing latitude/longitude locations if not
-  performing global indexing.
+  performing global indexing (default: ~/.config/odc-gee/regions.json).
 
 Some example config files are provided in the `./opt/config` directory.
 
