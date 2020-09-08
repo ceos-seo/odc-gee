@@ -42,27 +42,36 @@ timer and service for automated indexing. Modules can be accessed as such:
 
 ### Project Structure
 
+	 ├── docs
+	 │   ├── images
+	 │   │   ├── image1.png
+	 │   │   ├── image2.png
+	 │   │   └── image3.png
+	 │   ├── ODC-GEE_Guide.docx
+	 │   ├── ODC-GEE_Guide.pdf
+	 │   └── ODC-GEE_Guide.tex (extra background info on the project)
 	 ├── odc_gee
-	 │   ├── earthengine.py
-	 │   ├── indexing.py
+	 │   ├── earthengine.py (GEE REST API utilities)
+	 │   ├── indexing.py (indexing modules for creating dataset documents and adding to the database)
 	 │   ├── __init__.py
-	 │   ├── logger.py
-	 │   └── parser.py
+	 │   ├── logger.py (a logging wrapper for system logging [currently unused])
+	 │   └── parser.py (parses GEE metadata from REST API)
 	 ├── opt
 	 │   ├── config
 	 │   │   ├── datacube-core
-	 │   │   │   └── datacube.conf
+	 │   │   │   └── datacube.conf (example ODC configuration)
 	 │   │   ├── odc-gee
-	 │   │   │   └── regions.json
+	 │   │   │   └── regions.json (example region definitions)
 	 │   │   └── systemd
 	 │   │       └── user
-	 │   │           ├── update_products.service
-	 │   │           └── update_products.timer
+	 │   │           ├── update_products.service (systemd user service to run update_products)
+	 │   │           └── update_products.timer (systemd user timer to autorun service)
 	 │   └── local
 	 │       └── bin
-	 │           └── update_products
+	 │           └── update_products (example bash script for systemd service use)
 	 ├── scripts
-	 │   ├── index_gee
-	 │   └── new_product
-	 ├── README.md
+	 │   ├── index_gee (uses the odc_gee modules to index for defined products)
+	 │   └── new_product (guides users through creating a new product defintion)
+	 ├── .gitignore
+	 ├── README.md (odc-gee usage and setup)
 	 └── setup.py
