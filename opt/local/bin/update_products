@@ -14,7 +14,7 @@ asset='ECMWF/ERA5/DAILY'
 product='era5_daily_google'
 
 echo "Updating $product"
-index_gee --asset $asset --product $product --rolling_update
+index_gee --asset $asset --product $product --rolling_update -v 3
 
 regions=()
 regions+=(
@@ -28,7 +28,7 @@ product='ls7_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update
+        --region $region --rolling_update -v 3
 done
 
 regions+=(
@@ -41,7 +41,7 @@ product='ls8_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update
+        --region $region --rolling_update -v 3
 done
 
 asset='COPERNICUS/S1_GRD'
@@ -49,7 +49,7 @@ product='s1_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update
+        --region $region --rolling_update -v 3
 done
 
 asset='COPERNICUS/S2_SR'
@@ -57,7 +57,7 @@ product='s2_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update
+        --region $region --rolling_update -v 3
 done
 
 echo "Finished update."
