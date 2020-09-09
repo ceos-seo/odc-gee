@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# pylint: disable=import-error
+# pylint: disable=import-error,bare-except
 """Indexes GEE Products."""
 from datetime import datetime
 import json
@@ -16,8 +16,6 @@ from odc_gee.logger import Logger
 
 HOME = os.getenv("HOME")
 REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.json')
-WORLD_LATITUDE = (-90, 90)
-WORLD_LONGITUDE = (-180, 180)
 
 @click.command()
 @click.option("--asset", required=True, type=click.STRING,
@@ -26,14 +24,20 @@ WORLD_LONGITUDE = (-180, 180)
               help="The datacube product name to index.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
+@click.option("--latitude", default=(-90.0, 90.0), type=tuple,
+              help="A latitude to index if region is not supplied [default: (-90.0, 90.0)].")
+@click.option("--longitude", default=(-180.0, 180.0), type=tuple,
+              help="A longitude to index if region is not supplied [default: (-180.0, 180.0)].")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,
               help="Updates the product in the index.")
 @click.option("--rolling_update", "-r", is_flag=True, flag_value=True,
               help="Updates the product with latest available times.")
-@click.option("--progress", is_flag=True, flag_value=True,
+@click.option("--progress", "-p", is_flag=True, flag_value=True,
               help="Show progress bar.")
 @click.option("--verbosity", "-v", required=False, type=click.INT, default=1,
               help="The level of verbosity to use [0-5]")
+@click.option("--no_confirm", is_flag=True, flag_value=True,
+              help="Do not prompt for latitude/longitude confirmation.")
 def index_gee(**kwargs):
     """This script indexes GEE products."""
     logger = Logger(name="index_gee", base_dir=f'{HOME}/.local/share/odc-gee',
@@ -48,8 +52,11 @@ def index_gee(**kwargs):
                 regions = json.loads(_file.read())
             filters = dict(region=to_geojson(**regions[kwargs['region']]))
         else:
-            filters = dict(region=to_geojson(latitude=WORLD_LATITUDE,
-                                             longitude=WORLD_LONGITUDE))
+            if kwargs.get('no_confirm')\
+            or click.confirm(f'Index {kwargs.get("product")} for latitude={kwargs.get("latitude")}'\
+                             + f', longitude={kwargs.get("longitude")}?', abort=True):
+                filters = dict(region=to_geojson(latitude=kwargs.get('latitude'),
+                                                 longitude=kwargs.get('longitude')))
 
         asset_info = earthengine.get(kwargs['asset'])
         if kwargs['rolling_update']:
