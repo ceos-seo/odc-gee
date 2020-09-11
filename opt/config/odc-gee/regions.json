@@ -8,5 +8,7 @@
     "nsw": {"latitude": [-36.0574,-28.8608],
             "longitude": [145.4694,153.6813]},
     "vanuatu": {"latitude": [-20.3, -13.0],
-                "longitude": [166.3, 170.3]}
+                "longitude": [166.3, 170.3]},
+    "kenya": {"latitude": [-4.7283, 4.4701],
+              "longitude": [33.7829, 41.9265]}
 }

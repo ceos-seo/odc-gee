@@ -14,7 +14,7 @@ asset='ECMWF/ERA5/DAILY'
 product='era5_daily_google'
 
 echo "Updating $product"
-index_gee --asset $asset --product $product --rolling_update -v 3
+index_gee --asset $asset --product $product --rolling_update -v 3 --no_confirm
 
 regions=()
 regions+=(
@@ -28,12 +28,13 @@ product='ls7_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update -v 3
+        --region $region --rolling_update -v 3 --no_confirm
 done
 
 regions+=(
 tanzania
 vanuatu
+kenya
 )
 
 asset='LANDSAT/LC08/C01/T1_SR'
@@ -41,7 +42,7 @@ product='ls8_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update -v 3
+        --region $region --rolling_update -v 3 --no_confirm
 done
 
 asset='COPERNICUS/S1_GRD'
@@ -49,7 +50,7 @@ product='s1_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update -v 3
+        --region $region --rolling_update -v 3 --no_confirm
 done
 
 asset='COPERNICUS/S2_SR'
@@ -57,7 +58,7 @@ product='s2_google'
 for region in "${regions[@]}"; do
     echo "Updating $product"_"$region"
     index_gee --asset $asset --product $product\_$region \
-        --region $region --rolling_update -v 3
+        --region $region --rolling_update -v 3 --no_confirm
 done
 
 echo "Finished update."
