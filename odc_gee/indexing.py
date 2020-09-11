@@ -1,4 +1,4 @@
-# pylint: disable=no-member,broad-except,import-error
+# pylint: disable=no-member,broad-except,import-error,unused-argument
 ''' Indexes Google Earth Engine collections into Open Data Cube.
 
 This module provides the necessary functions to index data into an ODC database.
@@ -6,6 +6,9 @@ It contains multiple helper methods and dataset document specifications for
 different collections.
 '''
 from collections import namedtuple
+from contextlib import redirect_stderr
+import io
+import warnings
 
 from tqdm import tqdm
 import pandas as pd
@@ -30,15 +33,22 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
 
     resolver = Doc2Dataset(index, **kwargs)
     dataset, err = resolver(doc, uri)
+    buff = io.StringIO()
     if err is None:
-        try:
+        with redirect_stderr(buff):
             if update and index.datasets.get(dataset.id):
                 index.datasets.update(dataset, {tuple(): changes.allow_any})
             else:
                 index.datasets.add(dataset, sources_policy=sources_policy)
-        except Exception as err:
-            print(err)
-    return dataset, err
+        val = buff.getvalue()
+        if val.count('is already in the database'):
+            def warning_without_trace(message, *args, **kwargs):
+                return f'{message}'
+            warnings.formatwarning = warning_without_trace
+            warnings.warn(val)
+    else:
+        raise ValueError(err)
+    return dataset
 
 # TODO: Change this to use EO3 for better compatibility with GEE metadata.
 def make_metadata_doc(*args, **kwargs):

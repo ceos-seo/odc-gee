@@ -50,13 +50,12 @@ def index_gee(**kwargs):
         if kwargs['region']:
             with open(REGIONS_CONFIG, 'r') as _file:
                 regions = json.loads(_file.read())
-            filters = dict(region=to_geojson(**regions[kwargs['region']]))
-        else:
-            if kwargs.get('no_confirm')\
-            or click.confirm(f'Index {kwargs.get("product")} for latitude={kwargs.get("latitude")}'\
+            kwargs.update(**regions[kwargs['region']])
+        if kwargs.get('no_confirm')\
+        or click.confirm(f'Index {kwargs.get("product")} for latitude={kwargs.get("latitude")}'\
                              + f', longitude={kwargs.get("longitude")}?', abort=True):
-                filters = dict(region=to_geojson(latitude=kwargs.get('latitude'),
-                                                 longitude=kwargs.get('longitude')))
+            filters = dict(region=to_geojson(latitude=kwargs.get('latitude'),
+                                             longitude=kwargs.get('longitude')))
 
         asset_info = earthengine.get(kwargs['asset'])
         if kwargs['rolling_update']:

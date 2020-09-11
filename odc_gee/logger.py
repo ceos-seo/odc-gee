@@ -16,19 +16,24 @@ class Logger:
         """Initialize the logger."""
         Path(f'{base_dir}/log').mkdir(parents=True, exist_ok=True)
 
+        # Setup verbosity checks
         self.lvl = SimpleNamespace(**logging._nameToLevel)
+        verbosity = self.lvl.CRITICAL - (verbosity * 10)
+
         # Setup logging
-        self.logger = logging.getLogger(name)
+        logging.captureWarnings(True)
+        self.logger = logging.getLogger('py.warnings')
+        self.logger.name = name
         self.logger.setLevel(self.lvl.DEBUG)
 
-        # Setup logging to log.txt file
+        # Setup logging to log.txt file with rotation
         file_handler = logging.handlers.TimedRotatingFileHandler(f'{base_dir}/log/{name}.log',
                                                                  when='d', interval=30,
                                                                  backupCount=12)
+        # Always log debug messages
         file_handler.setLevel(self.lvl.DEBUG)
 
         # Setup logging to stdout based on verbosity
-        verbosity = self.lvl.CRITICAL - (verbosity * 10)
         stdout_handler = logging.StreamHandler()
         stdout_handler.setLevel(verbosity)
 

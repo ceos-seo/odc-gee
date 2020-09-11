@@ -76,6 +76,8 @@ class EarthEngine:
         name = '{}/assets/{}'.format(self.project, asset_id)
         url = self.earthengine.projects().assets().get(name=name).uri
         response = self.session.get(url)
+        if not response.ok:
+            raise ValueError(response.json().get('error').get('message'))
 
         if _print:
             pprint(json.loads(response.content))
@@ -94,6 +96,8 @@ class EarthEngine:
         name = '{}/assets/{}'.format(self.project, asset_id)
         url = self.earthengine.projects().assets().listImages(parent=name, **kwargs).uri
         response = self.session.get(url)
+        if not response.ok:
+            raise ValueError(response.json().get('error').get('message'))
 
         if _print:
             pprint(json.loads(response.content))
@@ -114,6 +118,8 @@ class EarthEngine:
         url = self.earthengine.projects().assets().getPixels(name=name).uri
 
         pixels_response = self.session.post(url, body)
+        if not pixels_response.ok:
+            raise ValueError(pixels_response.json().get('error').get('message'))
         pixels_content = pixels_response.content
 
         if _print:
@@ -149,6 +155,8 @@ class EarthEngine:
         body = json.dumps(kwargs)
 
         image_response = self.session.post(url, body)
+        if not image_response.ok:
+            raise ValueError(image_response.json().get('error').get('message'))
         image_content = image_response.content
 
         timestamp = str(datetime.now().timestamp()).split('.')[0]
