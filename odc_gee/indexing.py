@@ -148,7 +148,7 @@ def indexer(*args, update=False, response=None, image_sum=0):
     product = datacube.list_products().query(f'name=="{index_params.product}"')
     measurements = datacube.list_measurements()\
                    .query(f'product=="{index_params.product}"')
-    required_bands = [aliases[0] for aliases in measurements.aliases.values]
+    product_bands = [alias for aliases in measurements.aliases.values for alias in aliases]
 
     while(response is None or 'nextPageToken' in response.keys()):
         if response and 'nextPageToken' in response.keys():
@@ -162,8 +162,8 @@ def indexer(*args, update=False, response=None, image_sum=0):
         if len(response) != 0:
             for image in response['images']:
                 bands = [band['id'] for band in image['bands']]
-                band_length = len(list(filter(lambda x: x in required_bands, bands)))
-                if  band_length == len(required_bands):
+                band_length = len(list(filter(lambda x: x in product_bands, bands)))
+                if  band_length == len(measurements.aliases):
                     doc = make_metadata_doc(image, product, measurements)
                     add_dataset(doc, f'EEDAI:{image["name"]}',
                                 datacube.index, products=[index_params.product], update=update)

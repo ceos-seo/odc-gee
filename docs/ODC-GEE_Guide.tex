@@ -96,9 +96,9 @@ process can be found in the ODC documentation:
 primary goal is to define the most relevant and basic information about a
 \href{https://developers.google.com/earth-engine/datasets}{GEE catalog entry}.
 If using the odc-gee package, it is important to make sure aliases are included
-in the measurements field with the first alias in the list being the defined
+in the measurements field with an alias in the list being the defined
 band in the GEE catalog. For example, the blue band in a Sentinel-2 product
-will have "B2" as the first alias. This is to allow products to change names
+will have "B2" as an alias. This is to allow products to change names
 while retaining the mapping to the band name as defined by the API. It also
 performs a check to make sure a dataset has all the required bands to prevent a
 failure to index. Sentinel-1 is an example of this where it will rarely exclude
