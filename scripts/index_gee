@@ -24,9 +24,9 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.js
               help="The datacube product name to index.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
-@click.option("--latitude", default=(-90.0, 90.0), type=tuple,
+@click.option("--latitude", default=(-90.0, 90.0), type=click.STRING,
               help="A latitude to index if region is not supplied [default: (-90.0, 90.0)].")
-@click.option("--longitude", default=(-180.0, 180.0), type=tuple,
+@click.option("--longitude", default=(-180.0, 180.0), type=click.STRING,
               help="A longitude to index if region is not supplied [default: (-180.0, 180.0)].")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,
               help="Updates the product in the index.")
@@ -52,10 +52,13 @@ def index_gee(**kwargs):
                 regions = json.loads(_file.read())
             kwargs.update(**regions[kwargs['region']])
         if kwargs.get('no_confirm')\
-        or click.confirm(f'Index {kwargs.get("product")} for latitude={kwargs.get("latitude")}'\
-                             + f', longitude={kwargs.get("longitude")}?', abort=True):
-            filters = dict(region=to_geojson(latitude=kwargs.get('latitude'),
-                                             longitude=kwargs.get('longitude')))
+        or click.confirm(f'Index {kwargs.get("product")} for latitude=({kwargs.get("latitude")})'\
+                             + f', longitude=({kwargs.get("longitude")})?', abort=True):
+            filters = dict(region=to_geojson(latitude=tuple(float(lat) \
+                                                      for lat in kwargs.get('latitude').split(',')),
+                                             longitude=tuple(float(lon) \
+                                                       for lon in kwargs.get('longitude')\
+                                                       .split(','))))
 
         asset_info = earthengine.get(kwargs['asset'])
         if kwargs['rolling_update']:
