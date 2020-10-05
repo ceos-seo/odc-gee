@@ -54,11 +54,14 @@ def index_gee(**kwargs):
         if kwargs.get('no_confirm')\
         or click.confirm(f'Index {kwargs.get("product")} for latitude=({kwargs.get("latitude")})'\
                              + f', longitude=({kwargs.get("longitude")})?', abort=True):
-            filters = dict(region=to_geojson(latitude=tuple(float(lat) \
-                                                      for lat in kwargs.get('latitude').split(',')),
-                                             longitude=tuple(float(lon) \
-                                                       for lon in kwargs.get('longitude')\
-                                                       .split(','))))
+            kwargs.update(latitude=tuple(float(lat) for lat in kwargs.get('latitude').split(','))\
+                    if isinstance(kwargs.get('latitude'), str)\
+                    else kwargs.get('latitude'))
+            kwargs.update(longitude=tuple(float(lon) for lon in kwargs.get('longitude').split(','))\
+                    if isinstance(kwargs.get('longitude'), str)\
+                    else kwargs.get('longitude'))
+            filters = dict(region=to_geojson(latitude=kwargs['latitude'],
+                                             longitude=kwargs['longitude']))
 
         asset_info = earthengine.get(kwargs['asset'])
         if kwargs['rolling_update']:
