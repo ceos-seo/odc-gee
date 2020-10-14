@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+"""Script for creating product definition files."""
+# TODO: Should make this populate fields using the API
+import click
+import yaml
+
+@click.command()
+@click.argument("file", required=True, type=click.STRING)
+def new_product(**kwargs):
+    """Creates a product definition through various prompts to user."""
+    doc = dict()
+    doc['name'] = click.prompt("Name of the product", type=click.STRING)
+    doc['description'] = click.edit("Description of the product.")
+    doc['description'] = doc['description'].rstrip()\
+                         if doc['description'] else doc['description']
+    doc['metadata'] = dict(platform=dict(code=click.prompt("Platform code", type=click.STRING)),
+                           instrument=dict(name=click.prompt("Instrument name",
+                                                             type=click.STRING)),
+                           product_type=click.prompt("Product type", type=click.STRING),
+                           format=dict(name='GeoTiff'))
+    doc['storage'] = dict(crs=f"EPSG:{click.prompt('EPSG', type=click.STRING)}")
+    resolution = click.prompt("Resolution", type=click.FLOAT)
+    doc['storage']['resolution'] = dict(longitude=resolution,
+                                        latitude=-1*resolution)
+    doc['bands'] = list(range(click.prompt("Number of bands", type=click.INT)))
+
+    for idx, band in enumerate(doc['bands']):
+        doc['bands'][band] = dict()
+        doc['bands'][band]['name'] = click.prompt(f'Name for band {idx}', type=click.STRING)
+        doc['bands'][band]['aliases'] = click.prompt('Comma separated aliases',
+                                                     type=click.STRING).split(',')
+        doc['bands'][band]['dtype'] = click.prompt('Data type', type=click.STRING)
+        doc['bands'][band]['nodata'] = click.prompt('No data value', type=click.INT)
+        doc['bands'][band]['units'] = click.prompt('Units', type=click.STRING)
+        flags = list(range(click.prompt('Number of flags', default=0, type=click.INT)))
+        if flags:
+            doc['bands'][band]['flag_definition'] = dict()
+            for flag in flags:
+                flag = click.prompt(f'Name for flag {flag}', type=click.STRING)
+                flag_description = click.edit(f'Description of {flag}.')
+                flag_description = flag_description.rstrip()\
+                                   if flag_description else flag_description
+                bits = list(range(click.prompt('Bit count', type=click.INT)))
+                values = dict()
+                for bit in bits:
+                    values[2**bit] = click.prompt(f'Value name for bit {bit}',
+                                                  type=click.STRING)
+                doc['bands'][band]['flag_definition'][flag] = dict(bits=bits,
+                                                                   description=flag_description,
+                                                                   values=values)
+    with open(kwargs['file'], 'w') as _f:
+        _f.write(yaml.dump(doc))
+
+    click.echo(f'File written to {kwargs["file"]}.')
+
+if __name__ == '__main__':
+    new_product()

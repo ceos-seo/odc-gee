@@ -1,0 +1,114 @@
+#!/usr/bin/env python
+# pylint: disable=import-error,bare-except
+"""Indexes GEE Products."""
+from datetime import datetime
+import json
+import os
+import traceback
+
+import click
+import numpy as np
+
+from datacube import Datacube
+from odc_gee.earthengine import EarthEngine, to_geojson
+from odc_gee.indexing import indexer, index_with_progress
+from odc_gee.logger import Logger
+
+HOME = os.getenv("HOME")
+REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.json')
+
+@click.command()
+@click.option("--asset", required=True, type=click.STRING,
+              help="The GEE asset ID.")
+@click.option("--product", required=True, type=click.STRING,
+              help="The datacube product name to index.")
+@click.option("--region", default=None, type=click.STRING,
+              help="A region defined in the json file located in the REGIONS_CONFIG env.")
+@click.option("--latitude", default=(-90.0, 90.0), type=click.STRING,
+              help="A latitude to index if region is not supplied [default: (-90.0, 90.0)].")
+@click.option("--longitude", default=(-180.0, 180.0), type=click.STRING,
+              help="A longitude to index if region is not supplied [default: (-180.0, 180.0)].")
+@click.option("--update_product", "-u", is_flag=True, flag_value=True,
+              help="Updates the product in the index.")
+@click.option("--rolling_update", "-r", is_flag=True, flag_value=True,
+              help="Updates the product with latest available times.")
+@click.option("--progress", "-p", is_flag=True, flag_value=True,
+              help="Show progress bar.")
+@click.option("--verbosity", "-v", required=False, type=click.INT, default=1,
+              help="The level of verbosity to use [0-5]")
+@click.option("--no_confirm", is_flag=True, flag_value=True,
+              help="Do not prompt for latitude/longitude confirmation.")
+def index_gee(**kwargs):
+    """This script indexes GEE products."""
+    logger = Logger(name="index_gee", base_dir=f'{HOME}/.local/share/odc-gee',
+                    verbosity=kwargs['verbosity'])
+    try:
+        logger.log(f'Indexing {kwargs.get("product")}.')
+        datacube = Datacube(app='GEE_Indexing_Script')
+        earthengine = EarthEngine()
+
+        if kwargs['region']:
+            with open(REGIONS_CONFIG, 'r') as _file:
+                regions = json.loads(_file.read())
+            kwargs.update(**regions[kwargs['region']])
+        if kwargs.get('no_confirm')\
+        or click.confirm(f'Index {kwargs.get("product")} for latitude=({kwargs.get("latitude")})'\
+                             + f', longitude=({kwargs.get("longitude")})?', abort=True):
+            kwargs.update(latitude=tuple(float(lat) for lat in kwargs.get('latitude').split(','))\
+                    if isinstance(kwargs.get('latitude'), str)\
+                    else kwargs.get('latitude'))
+            kwargs.update(longitude=tuple(float(lon) for lon in kwargs.get('longitude').split(','))\
+                    if isinstance(kwargs.get('longitude'), str)\
+                    else kwargs.get('longitude'))
+            filters = dict(region=to_geojson(latitude=kwargs['latitude'],
+                                             longitude=kwargs['longitude']))
+
+        asset_info = earthengine.get(kwargs['asset'])
+        if kwargs['rolling_update']:
+            if kwargs['progress']:
+                year = np.sort(datacube.load(product=kwargs['product'],
+                                             measurements=[])).astype('datetime64[ms]').item().year
+                if year == datetime.utcnow().year:
+                    years = range(year, year+1)
+                else:
+                    years = range(year, datetime.utcnow().year)
+            else:
+                start_time = np.sort(datacube.load(product=kwargs['product'],
+                                                   measurements=[]).time.values)[-1]\
+                             .astype('datetime64[ms]').item().isoformat()
+                end_time = datetime.utcnow().isoformat()
+        else:
+            if kwargs['progress']:
+                date_range = [np.datetime64(date, 'ms').item().year\
+                              for date in asset_info.json()['properties']['date_range']]
+                years = range(date_range[0], date_range[1]+1)
+            else:
+                start_time, end_time = [np.datetime64(date, 'ms').item().isoformat()\
+                                        for date in asset_info.json()['properties']['date_range']]
+
+        if kwargs['progress']:
+            click.echo('Total in database before  {}'\
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+            _sum = index_with_progress(years, kwargs['asset'], kwargs['product'],
+                                       filters, update=kwargs['update_product'])[-1]
+            click.echo(f'Sum of images found: {_sum}')
+            click.echo('Total in database after  {}'\
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+
+        else:
+            click.echo('Total in database before  {}'\
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+            filters.update(startTime=f'{start_time}Z',
+                           endTime=f'{end_time}Z')
+            _sum = indexer(kwargs['asset'], kwargs['product'],
+                           filters, update=kwargs['update_product'])[-1]
+            click.echo(f'Sum of images found: {_sum}')
+            click.echo('Total in database after  {}'\
+                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+        logger.log(f'Successfully indexed {kwargs.get("product")}.')
+    except:
+        logger.log(f'Failed to index {kwargs.get("product")}.', logger.lvl.ERROR)
+        logger.log(traceback.format_exc(), logger.lvl.DEBUG)
+
+if __name__ == '__main__':
+    index_gee()
