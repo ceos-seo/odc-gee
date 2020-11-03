@@ -66,16 +66,15 @@ def index_gee(**kwargs):
         asset_info = earthengine.get(kwargs['asset'])
         if kwargs['rolling_update']:
             if kwargs['progress']:
-                year = np.sort(datacube.load(product=kwargs['product'],
-                                             measurements=[])).astype('datetime64[ms]').item().year
-                if year == datetime.utcnow().year:
-                    years = range(year, year+1)
-                else:
-                    years = range(year, datetime.utcnow().year)
+                year = np.max(list(datacube.index.datasets.search_returning(
+                    {'time'},
+                    product=kwargs['product']))).lower.year
+                years = range(year, year+1) \
+                        if year == datetime.utcnow().year else range(year, datetime.utcnow().year)
             else:
-                start_time = np.sort(datacube.load(product=kwargs['product'],
-                                                   measurements=[]).time.values)[-1]\
-                             .astype('datetime64[ms]').item().isoformat()
+                start_time = np.max(list(datacube.index.datasets.search_returning(
+                    {'time'},
+                    product=kwargs['product']))).lower.replace(tzinfo=None).isoformat()
                 end_time = datetime.utcnow().isoformat()
         else:
             if kwargs['progress']:
@@ -88,23 +87,23 @@ def index_gee(**kwargs):
 
         if kwargs['progress']:
             click.echo('Total in database before  {}'\
-                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+                       .format(datacube.index.datasets.count(product=kwargs['product'])))
             _sum = index_with_progress(years, kwargs['asset'], kwargs['product'],
                                        filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after  {}'\
-                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+                       .format(datacube.index.datasets.count(product=kwargs['product'])))
 
         else:
             click.echo('Total in database before  {}'\
-                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+                       .format(datacube.index.datasets.count(product=kwargs['product'])))
             filters.update(startTime=f'{start_time}Z',
                            endTime=f'{end_time}Z')
             _sum = indexer(kwargs['asset'], kwargs['product'],
                            filters, update=kwargs['update_product'])[-1]
             click.echo(f'Sum of images found: {_sum}')
             click.echo('Total in database after  {}'\
-                       .format(len(datacube.find_datasets(product=kwargs['product']))))
+                       .format(datacube.index.datasets.count(product=kwargs['product'])))
         logger.log(f'Successfully indexed {kwargs.get("product")}.')
     except:
         logger.log(f'Failed to index {kwargs.get("product")}.', logger.lvl.ERROR)
