@@ -1,173 +1,165 @@
-# pylint: disable=import-error,dangerous-default-value,invalid-name
+# pylint: disable=import-error,dangerous-default-value,invalid-name,protected-access
 """ Module for Google Earth Engine tools. """
-from datetime import datetime
-from pprint import pprint
-import io
-import json
+from pathlib import Path
 import os
 
-from IPython.display import Image
-from google.auth.transport.requests import AuthorizedSession
-from google.oauth2 import service_account
-import googleapiclient.discovery
+from google.auth.transport.requests import Request
+import ee
 import numpy
+
+from rasterio.errors import RasterioIOError
+import datacube
 
 SCOPES = ['https://www.googleapis.com/auth/earthengine',
           'https://www.googleapis.com/auth/cloud-platform']
-API_KEY = os.getenv('EE_API_KEY', None)
-if not API_KEY:
-    raise EnvironmentError('EE_API_KEY environment variable undefined.')
 HOME = os.getenv('HOME')
 
-def to_geojson(latitude, longitude):
-    """ Creates a GeoJSON dictionary.
-
-    Args:
-        latitude (str)
-        longitude (str)
-    Returns:
-        A dictionary of the GeoJSON.
-    """
-    return dict(type="Polygon",
-                coordinates=[[[longitude[0],
-                               latitude[0]],
-                              [longitude[1],
-                               latitude[0]],
-                              [longitude[1],
-                               latitude[1]],
-                              [longitude[0],
-                               latitude[1]],
-                              [longitude[0],
-                               latitude[0]]]])
-
-class EarthEngine:
-    """ An instance for interfacing with the Earth Engine REST API.
-
-    Attrs:
-        credentials (str): the location of the service account credentials for the API.
-        earthengine (googleapiclient.discovery.Resource): the API interface.
-        session (google.auth.transport.requests.AuthorizedSession):
-            a requests session class with credentials.
-        project (str): the project name to access in Earth Engine.
-    """
-    def __init__(self,
-                 project='earthengine-public',
+class Datacube(datacube.Datacube):
+    def __init__(self, *args,
                  credentials=os.getenv('GOOGLE_APPLICATION_CREDENTIALS',
-                                       f'{HOME}/.config/odc-gee/credentials.json')):
-        self.credentials = service_account.Credentials.from_service_account_file(
-            credentials, scopes=SCOPES)
-        self.earthengine = googleapiclient.discovery.build(
-            'earthengine', 'v1alpha', credentials=self.credentials, developerKey=API_KEY,
-            cache_discovery=False)
+                                       f'{HOME}/.config/odc-gee/credentials.json'),
+                 **kwargs):
+        if Path(credentials).exists():
+            self.credentials = ee.ServiceAccountCredentials('', key_file=credentials)
+            ee.Initialize(self.credentials)
+        else:
+            ee.Authenticate()
+            ee.Initialize()
+            self.credentials = ee.data.get_persistent_credentials()
+            self.request = Request()
+            self._refresh_credentials()
+        self.ee = ee
+        super().__init__(*args, **kwargs)
 
-        scoped_credentials = self.credentials.with_scopes(SCOPES)
-        self.session = AuthorizedSession(scoped_credentials)
-        self.project = 'projects/{}'.format(project)
+    def load(self, *args, **kwargs):
+        if kwargs.get('asset'):
+            params, kwargs = self.build_parameters(**kwargs)
+            try:
+                images = self.get_images(params)
+                if kwargs.get('product') and not isinstance(kwargs.get('product'),
+                                                            datacube.model.DatasetType):
+                    kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
+                else:
+                    kwargs.update(product=self.generate_product(**kwargs))
+                kwargs.update(datasets=get_datasets(images, **kwargs))
+                kwargs.pop('asset')
+                datasets = super().load(*args, **kwargs)
+            except RasterioIOError as error:
+                if error.args[0].find('"UNAUTHENTICATED"') != -1:
+                    self._refresh_credentials()
+                    return self.load(*args, **kwargs)
+            except Exception as error:
+                raise error
+            else:
+                return datasets
+        else:
+            return super().load(*args, **kwargs)
 
-    def get(self, asset_id, **kwargs):
-        """ Gets detailed information about an asset.
+    def _refresh_credentials(self):
+        self.credentials.refresh(self.request)
+        os.environ.update(EEDA_BEARER=self.credentials.token)
+        return True
 
-        Args:
-            asset_id (str): the asset identifier to get.
-            print (bool): will print the asset information if True.
-        Returns: the Requests response for the API query.
-        """
-        _print = kwargs.pop('print') if kwargs.get('print') else False
-        name = '{}/assets/{}'.format(self.project, asset_id)
-        url = self.earthengine.projects().assets().get(name=name).uri
-        response = self.session.get(url)
-        if not response.ok:
-            raise ValueError(response.json().get('error').get('message'))
+    def get_images(self, params):
+        self.ee.data._cloudApiOnly('listImages')
+        request = self.ee.data._get_cloud_api_resource().projects().assets().listImages(**params)
+        while request is not None:
+            response = self.ee.data._execute_cloud_call(request)
+            request = self.ee.data._cloud_api_resource.projects().assets().listImages_next(
+                request, response)
+            for image in response.get('images', []):
+                yield image
+            if 'pageSize' in params:
+                break
 
-        if _print:
-            pprint(json.loads(response.content))
-        return response
+    def build_parameters(self, **kwargs):
+        params = dict(parent=self.ee.data.convert_asset_id_to_asset_name(kwargs['asset']))
+        if kwargs.get('latitude') and kwargs.get('longitude'):
+            params.update(region=ee.Geometry.Rectangle(coords=(kwargs['longitude'][0],
+                                                               kwargs['latitude'][0],
+                                                               kwargs['longitude'][1],
+                                                               kwargs['latitude'][1])).getInfo())
+        if kwargs.get('time'):
+            if isinstance(kwargs['time'], (list, tuple)):
+                params.update(startTime=numpy.datetime64(kwargs['time'][0])\
+                              .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
+                params.update(endTime=numpy.datetime64(kwargs['time'][-1])\
+                              .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
+            else:
+                params.update(startTime=numpy.datetime64(kwargs['time'])\
+                              .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
+        if kwargs.get('query'):
+            params.update(**kwargs['query'])
+            kwargs.pop('query')
+        return params, kwargs
 
-    def list_images(self, asset_id, **kwargs):
-        """ Lists the images in an image collection asset.
+    def generate_product(self, **kwargs):
+        metadata = self.ee.data.getAsset(kwargs['asset'])
+        name = kwargs.get('name', metadata.get('id').split('/')[-1])
+        if kwargs.get('measurements') and not isinstance(kwargs['measurements'], (tuple, list)):
+            measurements = kwargs['measurements']
+        else:
+            measurements = list(self.get_measurements(kwargs['asset']))
+        definition = dict(name=name,
+                          description=metadata.get('properties').get('description'),
+                          metadata_type='eo',
+                          metadata=dict(product=dict(name=name)),
+                          measurements=measurements)
+        if kwargs.get('resolution') and kwargs.get('output_crs'):
+            definition.update(storage=dict(crs=kwargs['output_crs'],
+                                           resolution=dict(latitude=kwargs['resolution'][0],
+                                                           longitude=kwargs['resolution'][1])))
+        return self.index.products.from_doc(definition)
 
-        Args:
-            asset_id (str): the asset identifier for the collection.
-            print (bool): will print the asset information if True.
-        Optional Arguments: extra arguments will be passed to the API query.
-        Returns: the Requests response for the API query.
-        """
-        _print = kwargs.pop('print') if kwargs.get('print') else False
-        name = '{}/assets/{}'.format(self.project, asset_id)
-        url = self.earthengine.projects().assets().listImages(parent=name, **kwargs).uri
-        response = self.session.get(url)
-        if not response.ok:
-            raise ValueError(response.json().get('error').get('message'))
+    def get_measurements(self, asset):
+        url = f'gs://earthengine-stac/catalog/{asset.replace("/", "_")}.json'
+        blob = self.ee.Blob(url)
+        entry = self.ee.Dictionary(blob.string().decodeJSON())
+        band_types = ee.ImageCollection(asset).first().bandTypes().getInfo()
+        for band in entry.getInfo()['properties']['eo:bands']:
+            if 'empty' not in band['description'] and 'missing' not in band['description']:
+                band_type = get_type(band_types[band['name']])
+                measurement = dict(name=to_snake(band['description']),
+                                   units=band.get('gee:unit', ''),
+                                   dtype=str(band_type.dtype),
+                                   nodata=band_type.min,
+                                   aliases=[band['name']])
+                if band.get('gee:bitmask'):
+                    measurement.update(
+                        flags_definition={to_snake(bitmask['description']):
+                                          dict(dict(bits=bitmask['first_bit'],
+                                                    desctiption=bitmask['description'],
+                                                    values={value['value']:
+                                                            to_snake(value['description'])
+                                                            for value in bitmask['values']}))
+                                          for bitmask in band['gee:bitmask']['bitmask_parts']})
+                if band.get('gee:classes'):
+                    measurement.update(
+                        flags_definition={to_snake(_class['description']):
+                                          dict(bits=0,
+                                               description=_class['description'],
+                                               values={_class['value']: True})
+                                          for _class in band['gee:classes']})
+                yield datacube.model.Measurement(**measurement)
 
-        if _print:
-            pprint(json.loads(response.content))
-        return response
+def generate_documents(images, product):
+    from odc_gee.indexing import make_metadata_doc
+    for image in images:
+        yield make_metadata_doc(image, product)
 
-    def get_pixels(self, asset_id, **kwargs):
-        """ Fetches pixels from an image asset.
+def get_type(band_type):
+    types = [numpy.iinfo(numpy.dtype(f'int{2**i}')) for i in range(3, 7)]\
+             + [numpy.iinfo(numpy.dtype(f'uint{2**i}')) for i in range(3, 7)]\
+             + [numpy.finfo(numpy.dtype(f'float{2**i}')) for i in range(4, 8)]
+    return list(filter(lambda x: True if x.min == band_type['min']
+                       and x.max == band_type['max'] else None, types))[0]
 
-        Args:
-            asset_id (str): the asset identifier for the image.
-            print (bool): will
-        Optional Arguments: extra arguments will be passed to the API query.
-        Returns: the image array.
-        """
-        _print = kwargs.pop('print') if kwargs.get('print') else False
-        name = '{}/assets/{}'.format(self.project, asset_id)
-        body = json.dumps(kwargs)
-        url = self.earthengine.projects().assets().getPixels(name=name).uri
+def to_snake(string):
+    from re import sub, split
+    return sub(r'[, ]+', '_',
+               split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
 
-        pixels_response = self.session.post(url, body)
-        if not pixels_response.ok:
-            raise ValueError(pixels_response.json().get('error').get('message'))
-        pixels_content = pixels_response.content
-
-        if _print:
-            array = numpy.load(io.BytesIO(pixels_content))
-            print('Shape: %s' % (array.shape, ))
-            print('Data:')
-            print(array)
-        return array
-
-    def get_image(self, asset_id, fileFormat='PNG', bandIds=['B4', 'B3', 'B2'],
-                  grid={'dimensions':{'width':256, 'height':256}}, **kwargs):
-        """ Gets an image using the getPixels API query.
-
-        Args:
-            asset_id (str): the asset identifier of the image to fetch.
-            fileFormat (str): the format of the file.
-                default: 'PNG'
-            bandIds (list): a list of IDs for the bands to get.
-                default: ['B1', 'B3', 'B2']
-            grid (dict): the grid dimensions of the image.
-                default: {'dimensions': {'width': 256, 'height': 256}}
-            print (bool): will print the image using Ipython.
-        Returns: the image content.
-        """
-        _print = kwargs.pop('print') if kwargs.get('print') else False
-        url = self.earthengine.projects().assets()\
-              .getPixels(name=f'{self.project}/assets/{asset_id}').uri
-        asset = json.loads(self.get(asset_id).content)
-        kwargs['bandIds'] = bandIds
-        kwargs['grid'] = grid
-        kwargs['fileFormat'] = fileFormat
-        kwargs.update(region=kwargs.get('region', asset['geometry']))
-        body = json.dumps(kwargs)
-
-        image_response = self.session.post(url, body)
-        if not image_response.ok:
-            raise ValueError(image_response.json().get('error').get('message'))
-        image_content = image_response.content
-
-        timestamp = str(datetime.now().timestamp()).split('.')[0]
-        fname = './images/{asset_id}-{timestamp}.{ftype}'.format(
-            asset_id=asset_id.replace('/', '-'),
-            timestamp=timestamp,
-            ftype='tiff' if fileFormat == 'GEO_TIFF' else fileFormat.lower())
-        with open(fname, 'wb') as _file:
-            _file.write(image_content)
-
-        print(fname)
-        if _print:
-            return Image(image_content)
-        return image_content
+def get_datasets(images, **kwargs):
+    for document in generate_documents(images, kwargs['product']):
+        yield datacube.model.Dataset(kwargs['product'], document,
+                                     uris=f'EEDAI://{kwargs.get("asset")}')

@@ -10,7 +10,6 @@ from datacube.utils.geometry.tools import Affine
 
 Metadata = namedtuple('Metadata', ','.join(['id',
                                             'creation_dt',
-                                            'product_type',
                                             'platform',
                                             'instrument',
                                             'format',
@@ -58,18 +57,17 @@ def get_extents(points, spatial=False):
         return {key: dict(x=x, y=y) for key, (x, y) in zip(keys, points)}
     return {key: dict(lon=x, lat=y) for key, (x, y) in zip(keys, points)}
 
-def parse(image_data, product, measurements):
+def parse(image_data, product):
     """ Parses the GEE metadata for ODC use.
 
     Args:
         image_data: the image metadata to parse.
         product: the product information from the ODC index.
-        measurements: the measurements information from the ODC index for the product.
 
     Returns: a namedtuple of the data required by ODC for indexing.
     """
-    bands = [aliases[0] for aliases in measurements.aliases.values]
-    _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name.item()}/{image_data["name"]}'))
+    bands = tuple(zip(product.measurements, image_data['bands']))
+    _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name}/{image_data["name"]}'))
     creation_dt = image_data['startTime']
     affine_values = list(image_data['bands'][0]['grid']['affineTransform'].values())
     spatial_reference = image_data['bands'][0]['grid']\
@@ -92,9 +90,8 @@ def parse(image_data, product, measurements):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
-                        product_type=product.product_type.item(),
-                        platform=product.platform.item(),
-                        instrument=product.instrument.item(),
+                        platform=product.metadata_doc.get('eo:platform'),
+                        instrument=product.metadata_doc.get('eo:instrument'),
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,
@@ -103,5 +100,5 @@ def parse(image_data, product, measurements):
                         geo_ref_points=geo_ref_points,
                         spatial_reference=spatial_reference,
                         path=image_data['name'],
-                        bands=tuple(zip(measurements.name.values, bands)))
+                        bands=bands)
     return metadata

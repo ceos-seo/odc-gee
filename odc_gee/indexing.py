@@ -13,8 +13,6 @@ import warnings
 from tqdm import tqdm
 import pandas as pd
 
-from datacube import Datacube
-
 IndexParams = namedtuple('IndexParams', 'asset product filters')
 
 def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
@@ -64,7 +62,6 @@ def make_metadata_doc(*args, **kwargs):
     metadata = parse(*args, **kwargs)
     doc = {'id': metadata.id,
            'creation_dt': metadata.creation_dt,
-           'product_type': metadata.product_type,
            'platform': {'code': metadata.platform},
            'instrument': {'name': metadata.instrument},
            'format': {'name': metadata.format},
@@ -83,7 +80,7 @@ def make_metadata_doc(*args, **kwargs):
            'image': {
                'bands': {
                    name: {
-                       'path': 'EEDAI:' + metadata.path + ':' + band,
+                       'path': 'EEDAI:' + metadata.path + ':' + band['id'],
                        'layer': 1,
                        } for (name, band) in metadata.bands
                    }
@@ -134,39 +131,25 @@ def indexer(*args, update=False, response=None, image_sum=0):
         A tuple of the Requests response from the API query
         and the recursive sum of datasets found.
     """
-    from odc_gee.earthengine import EarthEngine
+    from odc_gee import earthengine
 
     index_params = IndexParams(*args)
 
-    datacube = Datacube(app='EE_Indexer')
-    earthengine = EarthEngine()
+    datacube = earthengine.Datacube(app='EE_Indexer')
 
     if index_params.product is None\
        or not datacube.list_products().name.isin([index_params.product]).any():
         raise ValueError("Missing product.")
 
-    product = datacube.list_products().query(f'name=="{index_params.product}"')
-    measurements = datacube.list_measurements()\
-                   .query(f'product=="{index_params.product}"')
-    product_bands = [alias for aliases in measurements.aliases.values for alias in aliases]
+    product = datacube.index.products.get_by_name(index_params.product)
+    product_bands = [measurement.aliases[0] for measurement in product.measurements.items()]
 
-    while(response is None or 'nextPageToken' in response.keys()):
-        if response and 'nextPageToken' in response.keys():
-            index_params.filters.update(pageToken=response['nextPageToken'])
-            response = earthengine.list_images(index_params.asset,
-                                               **index_params.filters).json()
-            index_params.filters.pop('pageToken')
-        else:
-            response = earthengine.list_images(index_params.asset,
-                                               **index_params.filters).json()
-        if len(response) != 0:
-            for image in response['images']:
-                bands = [band['id'] for band in image['bands']]
-                band_length = len(list(filter(lambda x: x in product_bands, bands)))
-                if  band_length == len(measurements.aliases):
-                    doc = make_metadata_doc(image, product, measurements)
-                    add_dataset(doc, f'EEDAI:{image["name"]}',
-                                datacube.index, products=[index_params.product], update=update)
-            image_sum = image_sum + len(response['images'])
-
-    return response, image_sum
+    for image in datacube.get_images(index_params):
+        bands = [band['id'] for band in image['bands']]
+        band_length = len(list(filter(lambda x: x in product_bands, bands)))
+        if band_length == len(product.measurements):
+            doc = make_metadata_doc(image, product)
+            add_dataset(doc, f'EEDAI:{image["name"]}',
+                        datacube.index, products=[index_params.product], update=update)
+        image_sum += 1
+    return image_sum
