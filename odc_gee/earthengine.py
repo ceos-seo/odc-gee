@@ -94,16 +94,24 @@ class Datacube(datacube.Datacube):
         return params, kwargs
 
     def generate_product(self, **kwargs):
+        stac_metadata = self.get_stac_metadata(kwargs['asset'])
         metadata = self.ee.data.getAsset(kwargs['asset'])
+
         name = kwargs.get('name', metadata.get('id').split('/')[-1])
         if kwargs.get('measurements') and not isinstance(kwargs['measurements'], (tuple, list)):
             measurements = kwargs['measurements']
         else:
-            measurements = list(self.get_measurements(kwargs['asset']))
+            measurements = list(self.get_measurements(stac_metadata))
         definition = dict(name=name,
                           description=metadata.get('properties').get('description'),
                           metadata_type='eo',
-                          metadata=dict(product=dict(name=name)),
+                          metadata=dict(product=dict(name=name),
+                                        properties={'eo:platform':
+                                                    stac_metadata['properties']\
+                                                    .get('eo:platform'),
+                                                    'eo:instrument':
+                                                    stac_metadata['properties']\
+                                                    .get('eo:instrument')}),
                           measurements=measurements)
         if kwargs.get('resolution') and kwargs.get('output_crs'):
             definition.update(storage=dict(crs=kwargs['output_crs'],
@@ -111,12 +119,9 @@ class Datacube(datacube.Datacube):
                                                            longitude=kwargs['resolution'][1])))
         return self.index.products.from_doc(definition)
 
-    def get_measurements(self, asset):
-        url = f'gs://earthengine-stac/catalog/{asset.replace("/", "_")}.json'
-        blob = self.ee.Blob(url)
-        entry = self.ee.Dictionary(blob.string().decodeJSON())
-        band_types = ee.ImageCollection(asset).first().bandTypes().getInfo()
-        for band in entry.getInfo()['properties']['eo:bands']:
+    def get_measurements(self, metadata):
+        band_types = ee.ImageCollection(metadata['id']).first().bandTypes().getInfo()
+        for band in metadata['properties']['eo:bands']:
             if 'empty' not in band['description'] and 'missing' not in band['description']:
                 band_type = get_type(band_types[band['name']])
                 measurement = dict(name=to_snake(band['description']),
@@ -141,6 +146,11 @@ class Datacube(datacube.Datacube):
                                                values={_class['value']: True})
                                           for _class in band['gee:classes']})
                 yield datacube.model.Measurement(**measurement)
+
+    def get_stac_metadata(self, asset):
+        url = f'gs://earthengine-stac/catalog/{asset.replace("/", "_")}.json'
+        blob = self.ee.Blob(url)
+        return self.ee.Dictionary(blob.string().decodeJSON()).getInfo()
 
 def generate_documents(images, product):
     from odc_gee.indexing import make_metadata_doc

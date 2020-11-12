@@ -90,8 +90,8 @@ def parse(image_data, product):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
-                        platform=product.metadata_doc.get('eo:platform'),
-                        instrument=product.metadata_doc.get('eo:instrument'),
+                        platform=product.metadata_doc['properties'].get('eo:platform'),
+                        instrument=product.metadata_doc['properties'].get('eo:instrument'),
                         format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,
