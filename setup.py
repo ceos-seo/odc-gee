@@ -16,4 +16,4 @@ setup(name='odc-gee',
           "rasterio>=1.1.8",
           ],
       packages=find_packages(),
-      scripts=['scripts/index_gee'],)
+      scripts=['scripts/index_gee', 'scripts/new_product'],)

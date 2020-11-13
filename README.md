@@ -13,13 +13,13 @@ The package can be installed using Python setuptools:
 `python setup.py build && python setup.py install`
 
 Alternatively:
-`pip install -e odc_gee`
+`pip install -e odc-gee`
 
 ## Configuration
 The scripts and python modules in this package use the following environment
 variables:
 
-* `DATACUBE_CONFIG_PATH`: Optional; the ODC configuration file.
+* `DATACUBE_CONFIG_PATH`: The ODC configuration file.
 * `GOOGLE_APPLICATION_CREDENTIALS`: Optional; the service account credentials
   JSON file (default: ~/.config/odc-gee/credentials.json).
 * `REGIONS_CONFIG`: Optional; a JSON file for storing latitude/longitude
@@ -33,7 +33,8 @@ The indexing of datasets can be done using the `index_gee` command. An example:
 `index_ee --asset LANDSAT/LC08/C01/T1_SR --product ls8_google`
 
 The package comes with two scripts. One script is a basic attempt to streamline
-new ODC product creation. This can be ran as `new_product <product_name.yaml>`.
+new ODC product creation. This can be ran as `new_product --asset <asset>
+<product_name.yaml>`.
 This will guide you through various prompts for creating a new product, or you
 can follow the [normal documented
 procedure](https://datacube-core.readthedocs.io/en/latest/ops/product.html).

@@ -59,7 +59,7 @@ class Datacube(datacube.Datacube):
                     kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
                 else:
                     kwargs.update(product=self.generate_product(**kwargs))
-                kwargs.update(datasets=get_datasets(images, **kwargs))
+                kwargs.update(datasets=get_datasets(images=images, **kwargs))
                 kwargs.pop('asset')
                 datasets = super().load(*args, **kwargs)
             except RasterioIOError as error:
@@ -274,7 +274,7 @@ def to_snake(string):
     return sub(r'[, ]+', '_',
                split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
 
-def get_datasets(asset=None, images=None, product=None):
+def get_datasets(**kwargs):
     ''' Gets datasets for a Datacube load.
 
     Args:
@@ -284,6 +284,6 @@ def get_datasets(asset=None, images=None, product=None):
 
     Returns: A generated list of datacube.model.Dataset objects.
     '''
-    for document in generate_documents(images, product):
-        yield datacube.model.Dataset(product, document,
-                                     uris=f'EEDAI://{asset}')
+    for document in generate_documents(kwargs['images'], kwargs['product']):
+        yield datacube.model.Dataset(kwargs['product'], document,
+                                     uris=f'EEDAI://{kwargs["asset"]}')
