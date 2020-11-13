@@ -13,6 +13,7 @@ setup(name='odc-gee',
           "datacube>=1.8.3",
           "earthengine-api>=0.1.24",
           "numpy>=1.18.4",
+          "rasterio>=1.1.8",
           ],
       packages=find_packages(),
       scripts=['scripts/index_gee'],)
