@@ -62,15 +62,25 @@ class Datacube(datacube.Datacube):
 
     def get_images(self, params):
         self.ee.data._cloudApiOnly('listImages')
-        request = self.ee.data._get_cloud_api_resource().projects().assets().listImages(**params)
-        while request is not None:
-            response = self.ee.data._execute_cloud_call(request)
-            request = self.ee.data._cloud_api_resource.projects().assets().listImages_next(
-                request, response)
-            for image in response.get('images', []):
-                yield image
-            if 'pageSize' in params:
-                break
+        try:
+            request = self.ee.data._get_cloud_api_resource().projects().assets().listImages(
+                **params)
+            while request is not None:
+                response = self.ee.data._execute_cloud_call(request)
+                request = self.ee.data._cloud_api_resource.projects().assets().listImages_next(
+                    request, response)
+                for image in response.get('images', []):
+                    yield image
+                if 'pageSize' in params:
+                    break
+        except self.ee.EEException as error:
+            if error.args[0].find('is not an image collection.') != -1:
+                params = dict(name=params['parent'])
+                request = self.ee.data._get_cloud_api_resource().projects().assets().get(**params)
+                response = self.ee.data._execute_cloud_call(request)
+                yield response
+        except Exception as error:
+            raise error
 
     def build_parameters(self, **kwargs):
         params = dict(parent=self.ee.data.convert_asset_id_to_asset_name(kwargs['asset']))
@@ -120,7 +130,13 @@ class Datacube(datacube.Datacube):
         return self.index.products.from_doc(definition)
 
     def get_measurements(self, metadata):
-        band_types = ee.ImageCollection(metadata['id']).first().bandTypes().getInfo()
+        try:
+            band_types = ee.ImageCollection(metadata['id']).first().bandTypes().getInfo()
+        except self.ee.EEException as error:
+            if error.args[0].find("found 'Image'") != -1:
+                band_types = ee.Image(metadata['id']).bandTypes().getInfo()
+        except Exception as error:
+            raise error
         for band in metadata['properties']['eo:bands']:
             if 'empty' not in band['description'] and 'missing' not in band['description']:
                 band_type = get_type(band_types[band['name']])
