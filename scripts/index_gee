@@ -68,13 +68,13 @@ def index_gee(**kwargs):
                           if isinstance(kwargs.get('longitude'), str)\
                           else kwargs.get('longitude'))
         kwargs.update(time=parse_time_parameter(datacube, **kwargs))
-        params, kwargs = datacube.build_parameters(**kwargs)
+        parameters, kwargs = datacube.build_parameters(**kwargs)
 
 
         click.echo('Total in database before  {}'\
                    .format(datacube.index.datasets.count(product=kwargs['product'])))
         _sum = indexer(kwargs['asset'], kwargs['product'],
-                       params, update=kwargs['update_product'])
+                       parameters, update=kwargs['update_product'])
         click.echo(f'Sum of images found: {_sum}')
         click.echo('Total in database after  {}'\
                    .format(datacube.index.datasets.count(product=kwargs['product'])))
@@ -84,6 +84,13 @@ def index_gee(**kwargs):
         logger.log(traceback.format_exc(), logger.lvl.DEBUG)
 
 def generate_product(datacube, **kwargs):
+    ''' Generates product definitions from supplied inputs.
+
+    Args:
+        datacube (odc_ge.earthengine.Datacube): The extended Earth Engine Datacube object.
+
+    Returns: A datacube.model.DatasetType object.
+    '''
     from re import sub
     kwargs.update(resolution=(float(x) for x in sub(r'[\(\)\[\] ]', '',
                                                     kwargs['resolution']).split(','))
@@ -94,6 +101,13 @@ def generate_product(datacube, **kwargs):
     return datacube.index.products.add(product, allow_table_lock=True)
 
 def parse_time_parameter(datacube, **kwargs):
+    ''' Parses the time parameter into a tuple of datetimes.
+
+    Args:
+        datacube (odc_gee.earthengine.Datacube): The extended Earth Engine Datacube object.
+
+    Returns: A tuple of datetime.datetime objects.
+    '''
     from re import sub
     asset_info = datacube.ee.data.getAsset(kwargs['asset'])
     if kwargs.get('time'):

@@ -103,9 +103,7 @@ while retaining the mapping to the band name as defined by the API. It also
 performs a check to make sure a dataset has all the required bands to prevent a
 failure to index. Sentinel-1 is an example of this where it will rarely exclude
 the typical "VV" and "VH" bands for "HH" and "HV" instead. ODC needs all bands
-defined in the product specification to be present. The odc-gee also includes a
-script to guide the process. This can be ran by running
-\lstinline{new_product <product-name>.yaml}.
+defined in the product specification to be present.
 
 An example of a Sentinel-1 product definition for Google Earth Engine (note:
 single precision float32 was chosen over original data's double precision
