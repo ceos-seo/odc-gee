@@ -181,22 +181,22 @@ class Datacube(datacube.Datacube):
                                                            longitude=resolution[1])))
         return self.index.products.from_doc(definition)
 
-    def get_measurements(self, metadata):
+    def get_measurements(self, stac_metadata):
         ''' Gets the measurements of a product from the GEE metadata.
 
         Args:
-            metadata (dict): The metadata from GEE for the desired product.
+            stac_metadata (dict): The STAC metadata from GEE for the desired product.
 
         Returns: A generated list of datacube.model.Measurement objects.
         '''
         try:
-            band_types = ee.ImageCollection(metadata['id']).first().bandTypes().getInfo()
+            band_types = ee.ImageCollection(stac_metadata['id']).first().bandTypes().getInfo()
         except self.ee.EEException as error:
             if error.args[0].find("found 'Image'") != -1:
-                band_types = ee.Image(metadata['id']).bandTypes().getInfo()
+                band_types = ee.Image(stac_metadata['id']).bandTypes().getInfo()
         except Exception as error:
             raise error
-        for band in metadata['properties']['eo:bands']:
+        for band in stac_metadata['properties']['eo:bands']:
             if 'empty' not in band['description'] and 'missing' not in band['description']:
                 band_type = get_type(band_types[band['name']])
                 measurement = dict(name=to_snake(band['description']),
@@ -207,7 +207,9 @@ class Datacube(datacube.Datacube):
                 if band.get('gee:bitmask'):
                     measurement.update(
                         flags_definition={to_snake(bitmask['description']):
-                                          dict(dict(bits=bitmask['first_bit'],
+                                          dict(dict(bits=list(
+                                              range(bitmask['first_bit'],
+                                                    bitmask['first_bit'] + bitmask['bit_count'])),
                                                     desctiption=bitmask['description'],
                                                     values={value['value']:
                                                             to_snake(value['description'])
