@@ -10,9 +10,6 @@ from contextlib import redirect_stderr
 import io
 import warnings
 
-from tqdm import tqdm
-import pandas as pd
-
 IndexParams = namedtuple('IndexParams', 'asset product filters')
 
 def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
@@ -48,7 +45,6 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
         raise ValueError(err)
     return dataset
 
-# TODO: Change this to use EO3 for better compatibility with GEE metadata.
 def make_metadata_doc(*args, **kwargs):
     """ Makes the dataset document from the parsed metadata.
 
@@ -62,8 +58,9 @@ def make_metadata_doc(*args, **kwargs):
     metadata = parse(*args, **kwargs)
     doc = {'id': metadata.id,
            'creation_dt': metadata.creation_dt,
-           'platform': {'code': metadata.platform},
-           'instrument': {'name': metadata.instrument},
+           'product': {'name': metadata.product},
+           'properties': {'eo:platform': metadata.platform,
+                          'eo:instrument': metadata.instrument},
            'format': {'name': metadata.format},
            'extent': {
                'from_dt': metadata.from_dt,
@@ -87,35 +84,6 @@ def make_metadata_doc(*args, **kwargs):
                },
            'lineage': {'source_datasets': {}}}
     return doc
-
-def index_with_progress(years, *args, **kwargs):
-    """ Indexes with progress bar.
-
-    Args:
-        years (list): the list of years being indexed.
-        asset (str): the asset identifier to index.
-        product (str): the product name to index.
-        filters (dict): API filters to use when searching for datasets to index.
-        update (bool): will update existing datasets if set True.
-    Returns:
-        A tuple of the Requests response from the API query
-        and the recursive sum of datasets found.
-    """
-    _sum = 0
-    for year in tqdm(range(len(years)), desc='Yearly Progress'):
-        _range = pd.date_range(f'{years[year]}-01-01',
-                               f'{years[year]+1}-01-01', freq='1MS')
-        for idx, date in tqdm(enumerate(_range[:-1]),
-                              total=len(_range)-1,
-                              desc=f'Progress for {years[year]}'):
-            resp = None
-            if idx < len(_range):
-                args[2].update(startTime=f'{date.isoformat()}Z',
-                               endTime=f'{_range[idx+1].isoformat()}Z')
-            else:
-                break
-            resp, _sum = indexer(response=resp, image_sum=_sum, *args, **kwargs)
-    return resp, _sum
 
 def indexer(*args, update=False, response=None, image_sum=0):
     """ Performs the parsing and
@@ -142,9 +110,9 @@ def indexer(*args, update=False, response=None, image_sum=0):
         raise ValueError("Missing product.")
 
     product = datacube.index.products.get_by_name(index_params.product)
-    product_bands = [measurement.aliases[0] for measurement in product.measurements.items()]
+    product_bands = [measurement.aliases[0] for measurement in product.measurements.values()]
 
-    for image in datacube.get_images(index_params):
+    for image in datacube.get_images(index_params.filters):
         bands = [band['id'] for band in image['bands']]
         band_length = len(list(filter(lambda x: x in product_bands, bands)))
         if band_length == len(product.measurements):

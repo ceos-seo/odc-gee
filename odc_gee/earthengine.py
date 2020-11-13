@@ -61,7 +61,6 @@ class Datacube(datacube.Datacube):
         return True
 
     def get_images(self, params):
-        self.ee.data._cloudApiOnly('listImages')
         try:
             request = self.ee.data._get_cloud_api_resource().projects().assets().listImages(
                 **params)

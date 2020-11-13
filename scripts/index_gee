@@ -7,11 +7,10 @@ import os
 import traceback
 
 import click
-import numpy as np
+import numpy
 
-from datacube import Datacube
-from odc_gee.earthengine import EarthEngine, to_geojson
-from odc_gee.indexing import indexer, index_with_progress
+from odc_gee import earthengine
+from odc_gee.indexing import indexer
 from odc_gee.logger import Logger
 
 HOME = os.getenv("HOME")
@@ -20,7 +19,7 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.js
 @click.command()
 @click.option("--asset", required=True, type=click.STRING,
               help="The GEE asset ID.")
-@click.option("--product", required=True, type=click.STRING,
+@click.option("--product", required=False, type=click.STRING, default=None,
               help="The datacube product name to index.")
 @click.option("--region", default=None, type=click.STRING,
               help="A region defined in the json file located in the REGIONS_CONFIG env.")
@@ -28,12 +27,19 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.js
               help="A latitude to index if region is not supplied [default: (-90.0, 90.0)].")
 @click.option("--longitude", default=(-180.0, 180.0), type=click.STRING,
               help="A longitude to index if region is not supplied [default: (-180.0, 180.0)].")
+@click.option("--time", type=click.STRING, required=False, default=None,
+              help="The time extents to index for the product [example: (2013-01-01, 2020-01-01].")
+@click.option("--generate_product", "-gp", is_flag=True, flag_value=True,
+              help="Generates a new product.")
+@click.option("--resolution", type=click.STRING, required=False, default=None,
+              help="The resolution for the product if generating a new product definition "
+              "[example: (-0.0001, 0.0001)].")
+@click.option("--output_crs", type=click.STRING, required=False, default=None,
+              help="The CRS of the product if generating new product definition.")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,
               help="Updates the product in the index.")
 @click.option("--rolling_update", "-r", is_flag=True, flag_value=True,
               help="Updates the product with latest available times.")
-@click.option("--progress", "-p", is_flag=True, flag_value=True,
-              help="Show progress bar.")
 @click.option("--verbosity", "-v", required=False, type=click.INT, default=1,
               help="The level of verbosity to use [0-5]")
 @click.option("--no_confirm", is_flag=True, flag_value=True,
@@ -44,70 +50,66 @@ def index_gee(**kwargs):
                     verbosity=kwargs['verbosity'])
     try:
         logger.log(f'Indexing {kwargs.get("product")}.')
-        datacube = Datacube(app='GEE_Indexing_Script')
-        earthengine = EarthEngine()
+        datacube = earthengine.Datacube(app='GEE_Indexing_Script')
 
+        if kwargs['generate_product']:
+            kwargs.update(product=generate_product(datacube, **kwargs).name)
         if kwargs['region']:
             with open(REGIONS_CONFIG, 'r') as _file:
                 regions = json.loads(_file.read())
             kwargs.update(**regions[kwargs['region']])
         if kwargs.get('no_confirm')\
         or click.confirm(f'Index {kwargs.get("product")} for latitude=({kwargs.get("latitude")})'\
-                             + f', longitude=({kwargs.get("longitude")})?', abort=True):
+                         + f', longitude=({kwargs.get("longitude")})?', abort=True):
             kwargs.update(latitude=tuple(float(lat) for lat in kwargs.get('latitude').split(','))\
-                    if isinstance(kwargs.get('latitude'), str)\
-                    else kwargs.get('latitude'))
+                          if isinstance(kwargs.get('latitude'), str)\
+                          else kwargs.get('latitude'))
             kwargs.update(longitude=tuple(float(lon) for lon in kwargs.get('longitude').split(','))\
-                    if isinstance(kwargs.get('longitude'), str)\
-                    else kwargs.get('longitude'))
-            filters = dict(region=to_geojson(latitude=kwargs['latitude'],
-                                             longitude=kwargs['longitude']))
+                          if isinstance(kwargs.get('longitude'), str)\
+                          else kwargs.get('longitude'))
+        kwargs.update(time=parse_time_parameter(datacube, **kwargs))
+        params, kwargs = datacube.build_parameters(**kwargs)
 
-        asset_info = earthengine.get(kwargs['asset'])
-        if kwargs['rolling_update']:
-            if kwargs['progress']:
-                year = np.max(list(datacube.index.datasets.search_returning(
-                    {'time'},
-                    product=kwargs['product']))).lower.year
-                years = range(year, year+1) \
-                        if year == datetime.utcnow().year else range(year, datetime.utcnow().year)
-            else:
-                start_time = np.max(list(datacube.index.datasets.search_returning(
-                    {'time'},
-                    product=kwargs['product']))).lower.replace(tzinfo=None).isoformat()
-                end_time = datetime.utcnow().isoformat()
-        else:
-            if kwargs['progress']:
-                date_range = [np.datetime64(date, 'ms').item().year\
-                              for date in asset_info.json()['properties']['date_range']]
-                years = range(date_range[0], date_range[1]+1)
-            else:
-                start_time, end_time = [np.datetime64(date, 'ms').item().isoformat()\
-                                        for date in asset_info.json()['properties']['date_range']]
 
-        if kwargs['progress']:
-            click.echo('Total in database before  {}'\
-                       .format(datacube.index.datasets.count(product=kwargs['product'])))
-            _sum = index_with_progress(years, kwargs['asset'], kwargs['product'],
-                                       filters, update=kwargs['update_product'])[-1]
-            click.echo(f'Sum of images found: {_sum}')
-            click.echo('Total in database after  {}'\
-                       .format(datacube.index.datasets.count(product=kwargs['product'])))
-
-        else:
-            click.echo('Total in database before  {}'\
-                       .format(datacube.index.datasets.count(product=kwargs['product'])))
-            filters.update(startTime=f'{start_time}Z',
-                           endTime=f'{end_time}Z')
-            _sum = indexer(kwargs['asset'], kwargs['product'],
-                           filters, update=kwargs['update_product'])[-1]
-            click.echo(f'Sum of images found: {_sum}')
-            click.echo('Total in database after  {}'\
-                       .format(datacube.index.datasets.count(product=kwargs['product'])))
+        click.echo('Total in database before  {}'\
+                   .format(datacube.index.datasets.count(product=kwargs['product'])))
+        _sum = indexer(kwargs['asset'], kwargs['product'],
+                       params, update=kwargs['update_product'])
+        click.echo(f'Sum of images found: {_sum}')
+        click.echo('Total in database after  {}'\
+                   .format(datacube.index.datasets.count(product=kwargs['product'])))
         logger.log(f'Successfully indexed {kwargs.get("product")}.')
     except:
         logger.log(f'Failed to index {kwargs.get("product")}.', logger.lvl.ERROR)
         logger.log(traceback.format_exc(), logger.lvl.DEBUG)
+
+def generate_product(datacube, **kwargs):
+    from re import sub
+    kwargs.update(resolution=(float(x) for x in sub(r'[\(\)\[\] ]', '',
+                                                    kwargs['resolution']).split(','))
+                  if isinstance(kwargs['resolution'], str) else kwargs.get('resolution'))
+    if bool(kwargs['resolution']) ^ bool(kwargs['output_crs']):
+        raise ValueError('Both resolution and output_crs must be supplied together.')
+    product = datacube.generate_product(name=kwargs.get('product'), **kwargs)
+    return datacube.index.products.add(product, allow_table_lock=True)
+
+def parse_time_parameter(datacube, **kwargs):
+    from re import sub
+    asset_info = datacube.ee.data.getAsset(kwargs['asset'])
+    if kwargs.get('time'):
+        start_time, end_time = (numpy.datetime64(time, 'ms').item().isoformat()\
+                                for time in sub(r'[\(\)\[\] ]', '', kwargs['time']).split(','))\
+                               if isinstance(kwargs['time'], str) else kwargs.get('time')
+    else:
+        if kwargs['rolling_update']:
+            start_time = numpy.max(list(datacube.index.datasets.search_returning(
+                {'time'},
+                product=kwargs['product']))).lower.replace(tzinfo=None).isoformat()
+            end_time = datetime.utcnow().isoformat()
+        else:
+            start_time, end_time = [numpy.datetime64(date, 'ms').item().isoformat()\
+                                    for date in asset_info['properties']['date_range']]
+    return (start_time, end_time)
 
 if __name__ == '__main__':
     index_gee()

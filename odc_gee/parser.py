@@ -10,6 +10,7 @@ from datacube.utils.geometry.tools import Affine
 
 Metadata = namedtuple('Metadata', ','.join(['id',
                                             'creation_dt',
+                                            'product',
                                             'platform',
                                             'instrument',
                                             'format',
@@ -90,6 +91,7 @@ def parse(image_data, product):
 
     metadata = Metadata(id=_id,
                         creation_dt=creation_dt,
+                        product=product.name,
                         platform=product.metadata_doc['properties'].get('eo:platform'),
                         instrument=product.metadata_doc['properties'].get('eo:instrument'),
                         format='GeoTIFF',
