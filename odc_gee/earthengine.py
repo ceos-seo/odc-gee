@@ -3,12 +3,12 @@
 from pathlib import Path
 import os
 
-from google.auth.transport.requests import Request
-import ee
 import numpy
 
+from google.auth.transport.requests import Request
 from rasterio.errors import RasterioIOError
 import datacube
+import ee
 
 SCOPES = ['https://www.googleapis.com/auth/earthengine',
           'https://www.googleapis.com/auth/cloud-platform']
@@ -27,8 +27,10 @@ class Datacube(datacube.Datacube):
                                        f'{HOME}/.config/odc-gee/credentials.json'),
                  **kwargs):
         if Path(credentials).exists():
+            os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=credentials)
             self.credentials = ee.ServiceAccountCredentials('', key_file=credentials)
             ee.Initialize(self.credentials)
+            self.request = None
         else:
             ee.Authenticate()
             ee.Initialize()
@@ -64,8 +66,9 @@ class Datacube(datacube.Datacube):
                 datasets = super().load(*args, **kwargs)
             except RasterioIOError as error:
                 if error.args[0].find('"UNAUTHENTICATED"') != -1:
-                    self._refresh_credentials()
-                    return self.load(*args, **kwargs)
+                    if self._refresh_credentials():
+                        return self.load(*args, **kwargs)
+                    raise error
             except Exception as error:
                 raise error
             else:
@@ -74,9 +77,11 @@ class Datacube(datacube.Datacube):
             return super().load(*args, **kwargs)
 
     def _refresh_credentials(self):
-        self.credentials.refresh(self.request)
-        os.environ.update(EEDA_BEARER=self.credentials.token)
-        return True
+        if self.request:
+            self.credentials.refresh(self.request)
+            os.environ.update(EEDA_BEARER=self.credentials.token)
+            return True
+        return False
 
     def get_images(self, parameters):
         ''' Gets the images or image from the GEE REST API.
