@@ -50,8 +50,7 @@ def make_metadata_doc(*args, **kwargs):
 
     Args:
         image_data (dict): the image metadata to parse.
-        product (pandas.DataFrame): the product information from the ODC index.
-        meaurements (pandas.DataFrame): the measurements information from the ODC index.
+        product (datacube.model.DatasetType): the product information from the ODC index.
     Returns: a dictionary of the dataset document.
     """
     from odc_gee.parser import parse

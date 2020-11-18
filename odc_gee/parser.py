@@ -62,8 +62,8 @@ def parse(image_data, product):
     """ Parses the GEE metadata for ODC use.
 
     Args:
-        image_data: the image metadata to parse.
-        product: the product information from the ODC index.
+        image_data (dict): the image metadata to parse.
+        product (datacube.model.DatasetType): the product information from the ODC index.
 
     Returns: a namedtuple of the data required by ODC for indexing.
     """
