@@ -108,7 +108,7 @@ class Datacube(datacube.Datacube):
         except Exception as error:
             raise error
 
-    def build_parameters(self, **kwargs):
+    def build_parameters(self, query=None, **kwargs):
         ''' Build query parameters for GEE the REST API.
 
         Args:
@@ -119,8 +119,8 @@ class Datacube(datacube.Datacube):
             query (dict): Optional; extra parameters to add to the query.
 
         Returns:
-            A tuple of a dict of query parameter and the original kwargs dict
-            with the query key removed if provided.
+            If query is supplied, a tuple of a dict of built parameter and the original kwargs dict
+            with the query removed. Otherwise, returns just the built paramseters.
         '''
         asset = kwargs['asset']
         parameters = dict(parent=self.ee.data.convert_asset_id_to_asset_name(asset))
@@ -139,10 +139,10 @@ class Datacube(datacube.Datacube):
             else:
                 parameters.update(startTime=numpy.datetime64(kwargs['time'])\
                               .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-        if kwargs.get('query'):
-            parameters.update(**kwargs['query'])
-            kwargs.pop('query')
-        return parameters, kwargs
+        if query:
+            parameters.update(**query)
+            return parameters, kwargs
+        return parameters
 
     # TODO: Need to determine how to handle measurements.
     def generate_product(self, asset=None, name=None,
