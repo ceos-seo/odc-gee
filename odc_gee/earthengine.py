@@ -1,18 +1,17 @@
-# pylint: disable=import-error,dangerous-default-value,invalid-name,protected-access
+# pylint: disable=import-error,invalid-name,protected-access
 """ Module for Google Earth Engine tools. """
+from importlib import import_module
 from pathlib import Path
 import os
 
+from rasterio.errors import RasterioIOError
 import numpy
 
-from google.auth.transport.requests import Request
-from rasterio.errors import RasterioIOError
 import datacube
-import ee
 
-SCOPES = ['https://www.googleapis.com/auth/earthengine',
-          'https://www.googleapis.com/auth/cloud-platform']
 HOME = os.getenv('HOME')
+CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS',
+                        f'{HOME}/.config/odc-gee/credentials.json')
 
 class Datacube(datacube.Datacube):
     ''' Extended Datacube object for use with Google Earth Engine.
@@ -22,22 +21,19 @@ class Datacube(datacube.Datacube):
         request: The Request object used in the session.
         ee: A reference to the ee (earthengine-api) module.
     '''
-    def __init__(self, *args,
-                 credentials=os.getenv('GOOGLE_APPLICATION_CREDENTIALS',
-                                       f'{HOME}/.config/odc-gee/credentials.json'),
-                 **kwargs):
+    def __init__(self, *args, credentials=CREDENTIALS, **kwargs):
+        self.ee = import_module('ee')
         if Path(credentials).exists():
             os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=credentials)
-            self.credentials = ee.ServiceAccountCredentials('', key_file=credentials)
-            ee.Initialize(self.credentials)
+            self.credentials = self.ee.ServiceAccountCredentials('', key_file=credentials)
+            self.ee.Initialize(self.credentials)
             self.request = None
         else:
-            ee.Authenticate()
-            ee.Initialize()
-            self.credentials = ee.data.get_persistent_credentials()
-            self.request = Request()
+            self.ee.Authenticate()
+            self.ee.Initialize()
+            self.credentials = self.ee.data.get_persistent_credentials()
+            self.request = import_module('google.auth.transport.requests').Request()
             self._refresh_credentials()
-        self.ee = ee
         super().__init__(*args, **kwargs)
 
     def load(self, *args, **kwargs):
@@ -130,10 +126,10 @@ class Datacube(datacube.Datacube):
         parameters = dict(parent=self.ee.data.convert_asset_id_to_asset_name(asset))
         if kwargs.get('latitude') and kwargs.get('longitude'):
             parameters.update(
-                region=ee.Geometry.Rectangle(coords=(kwargs['longitude'][0],
-                                                     kwargs['latitude'][0],
-                                                     kwargs['longitude'][1],
-                                                     kwargs['latitude'][1])).getInfo())
+                region=self.ee.Geometry.Rectangle(coords=(kwargs['longitude'][0],
+                                                          kwargs['latitude'][0],
+                                                          kwargs['longitude'][1],
+                                                          kwargs['latitude'][1])).getInfo())
         if kwargs.get('time'):
             if isinstance(kwargs['time'], (list, tuple)):
                 parameters.update(startTime=numpy.datetime64(kwargs['time'][0])\
@@ -195,10 +191,10 @@ class Datacube(datacube.Datacube):
         Returns: A generated list of datacube.model.Measurement objects.
         '''
         try:
-            band_types = ee.ImageCollection(stac_metadata['id']).first().bandTypes().getInfo()
+            band_types = self.ee.ImageCollection(stac_metadata['id']).first().bandTypes().getInfo()
         except self.ee.EEException as error:
             if error.args[0].find("found 'Image'") != -1:
-                band_types = ee.Image(stac_metadata['id']).bandTypes().getInfo()
+                band_types = self.ee.Image(stac_metadata['id']).bandTypes().getInfo()
         except Exception as error:
             raise error
         for band in stac_metadata['properties']['eo:bands']:
