@@ -48,9 +48,9 @@ class Datacube(datacube.Datacube):
 
         Returns: The queried xarray.Dataset.
         '''
-        if kwargs.get('asset'):
-            parameters, kwargs = self.build_parameters(**kwargs)
-            try:
+        try:
+            if kwargs.get('asset'):
+                parameters, kwargs = self.build_parameters(**kwargs)
                 images = self.get_images(parameters)
                 if kwargs.get('product') and not isinstance(kwargs.get('product'),
                                                             datacube.model.DatasetType):
@@ -60,17 +60,17 @@ class Datacube(datacube.Datacube):
                 kwargs.update(datasets=get_datasets(images=images, **kwargs))
                 kwargs.pop('asset')
                 datasets = super().load(*args, **kwargs)
-            except RasterioIOError as error:
-                if error.args[0].find('"UNAUTHENTICATED"') != -1:
-                    if self._refresh_credentials():
-                        return self.load(*args, **kwargs)
-                    raise error
-            except Exception as error:
-                raise error
             else:
-                return datasets
+                return super().load(*args, **kwargs)
+        except RasterioIOError as error:
+            if error.args[0].find('"UNAUTHENTICATED"') != -1:
+                if self._refresh_credentials():
+                    return self.load(*args, **kwargs)
+                raise error
+        except Exception as error:
+            raise error
         else:
-            return super().load(*args, **kwargs)
+            return datasets
 
     def _refresh_credentials(self):
         if self.request:
