@@ -101,6 +101,6 @@ def parse(image_data, product):
                         coord=coord,
                         geo_ref_points=geo_ref_points,
                         spatial_reference=spatial_reference,
-                        path=image_data['name'],
+                        path=f'EEDAI:{image_data["name"]}:',
                         bands=bands)
     return metadata

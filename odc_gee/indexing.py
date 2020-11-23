@@ -76,7 +76,7 @@ def make_metadata_doc(*args, **kwargs):
            'image': {
                'bands': {
                    name: {
-                       'path': 'EEDAI:' + metadata.path + ':' + band['id'],
+                       'path': metadata.path + band['id'],
                        'layer': 1,
                        } for (name, band) in metadata.bands
                    }
@@ -109,7 +109,7 @@ def indexer(*args, update=False, response=None, image_sum=0):
         raise ValueError("Missing product.")
 
     product = datacube.index.products.get_by_name(index_params.product)
-    product_bands = [measurement.aliases[0] for measurement in product.measurements.values()]
+    product_bands = list(product.measurements.keys())
 
     for image in datacube.get_images(index_params.filters):
         bands = [band['id'] for band in image['bands']]

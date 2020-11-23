@@ -200,11 +200,11 @@ class Datacube(datacube.Datacube):
         for band in stac_metadata['properties']['eo:bands']:
             if 'empty' not in band['description'] and 'missing' not in band['description']:
                 band_type = get_type(band_types[band['name']])
-                measurement = dict(name=to_snake(band['description']),
+                measurement = dict(name=band['name'],
                                    units=band.get('gee:unit', ''),
                                    dtype=str(band_type.dtype),
                                    nodata=band_type.min,
-                                   aliases=[band['name']])
+                                   aliases=[to_snake(band['description'])])
                 if band.get('gee:bitmask'):
                     measurement.update(
                         flags_definition={to_snake(bitmask['description']):
