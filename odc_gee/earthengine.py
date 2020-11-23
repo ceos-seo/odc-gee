@@ -237,17 +237,18 @@ class Datacube(datacube.Datacube):
         blob = self.ee.Blob(url)
         return self.ee.Dictionary(blob.string().decodeJSON()).getInfo()
 
-def generate_documents(images, product):
+def generate_documents(asset, images, product):
     ''' Generates Datacube dataset documents from GEE image data.
 
     Args:
+        asset (str): The asset ID of the product in the GEE catalog.
         images (list): A list of image data from the GEE API.
         product (datacube.model.DatasetType): A product to associate datasets with.
     Returns: A generated list of datacube.model.Dataset objects.
     '''
     from odc_gee.indexing import make_metadata_doc
     for image in images:
-        yield make_metadata_doc(image, product)
+        yield make_metadata_doc(asset, image, product)
 
 def get_type(band_type):
     ''' Gets the band unit type from GEE metadata.
@@ -285,6 +286,6 @@ def get_datasets(**kwargs):
 
     Returns: A generated list of datacube.model.Dataset objects.
     '''
-    for document in generate_documents(kwargs['images'], kwargs['product']):
+    for document in generate_documents(kwargs['asset'], kwargs['images'], kwargs['product']):
         yield datacube.model.Dataset(kwargs['product'], document,
                                      uris=f'EEDAI://{kwargs["asset"]}')

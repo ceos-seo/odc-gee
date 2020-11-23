@@ -9,6 +9,7 @@ from datacube.utils.geometry import polygon_from_transform, Geometry
 from datacube.utils.geometry.tools import Affine
 
 Metadata = namedtuple('Metadata', ','.join(['id',
+                                            'asset',
                                             'creation_dt',
                                             'product',
                                             'platform',
@@ -58,10 +59,11 @@ def get_extents(points, spatial=False):
         return {key: dict(x=x, y=y) for key, (x, y) in zip(keys, points)}
     return {key: dict(lon=x, lat=y) for key, (x, y) in zip(keys, points)}
 
-def parse(image_data, product):
+def parse(asset, image_data, product):
     """ Parses the GEE metadata for ODC use.
 
     Args:
+        asset (str): the asset ID of the product in the GEE catalog.
         image_data (dict): the image metadata to parse.
         product (datacube.model.DatasetType): the product information from the ODC index.
 
@@ -90,6 +92,7 @@ def parse(image_data, product):
                      lr=dict(lon=180.0, lat=-90.0))
 
     metadata = Metadata(id=_id,
+                        asset=asset,
                         creation_dt=creation_dt,
                         product=product.name,
                         platform=product.metadata_doc['properties'].get('eo:platform'),

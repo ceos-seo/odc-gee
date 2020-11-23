@@ -49,6 +49,7 @@ def make_metadata_doc(*args, **kwargs):
     """ Makes the dataset document from the parsed metadata.
 
     Args:
+        asset (str): the asset ID of the product in the GEE catalog.
         image_data (dict): the image metadata to parse.
         product (datacube.model.DatasetType): the product information from the ODC index.
     Returns: a dictionary of the dataset document.
@@ -59,7 +60,8 @@ def make_metadata_doc(*args, **kwargs):
            'creation_dt': metadata.creation_dt,
            'product': {'name': metadata.product},
            'properties': {'eo:platform': metadata.platform,
-                          'eo:instrument': metadata.instrument},
+                          'eo:instrument': metadata.instrument,
+                          'gee:asset': metadata.asset},
            'format': {'name': metadata.format},
            'extent': {
                'from_dt': metadata.from_dt,
