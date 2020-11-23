@@ -117,7 +117,7 @@ def indexer(*args, update=False, response=None, image_sum=0):
         bands = [band['id'] for band in image['bands']]
         band_length = len(list(filter(lambda x: x in product_bands, bands)))
         if band_length == len(product.measurements):
-            doc = make_metadata_doc(image, product)
+            doc = make_metadata_doc(index_params.asset, image, product)
             add_dataset(doc, f'EEDAI:{image["name"]}',
                         datacube.index, products=[index_params.product], update=update)
         image_sum += 1

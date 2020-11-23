@@ -142,7 +142,7 @@ class Datacube(datacube.Datacube):
         if query:
             parameters.update(**query)
             return parameters, kwargs
-        return parameters
+        return parameters, kwargs
 
     # TODO: Need to determine how to handle measurements.
     def generate_product(self, asset=None, name=None,
@@ -174,7 +174,8 @@ class Datacube(datacube.Datacube):
                                                     .get('eo:platform'),
                                                     'eo:instrument':
                                                     stac_metadata['properties']\
-                                                    .get('eo:instrument')}),
+                                                    .get('eo:instrument'),
+                                                    'gee:asset': asset}),
                           measurements=measurements)
         if resolution and output_crs:
             definition.update(storage=dict(crs=output_crs,
