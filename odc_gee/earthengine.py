@@ -167,7 +167,7 @@ class Datacube(datacube.Datacube):
             measurements = list(self.get_measurements(stac_metadata))
         definition = dict(name=name,
                           description=metadata.get('properties').get('description'),
-                          metadata_type='eo',
+                          metadata_type='eo3',
                           metadata=dict(product=dict(name=name),
                                         properties={'eo:platform':
                                                     stac_metadata['properties']\

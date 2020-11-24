@@ -5,21 +5,23 @@ import uuid
 
 import numpy as np
 
-from datacube.utils.geometry import polygon_from_transform, Geometry
+from datacube.utils.geometry import Geometry
 from datacube.utils.geometry.tools import Affine
 
 Metadata = namedtuple('Metadata', ','.join(['id',
-                                            'asset',
-                                            'creation_dt',
                                             'product',
+                                            'creation_dt',
+                                            'format',
                                             'platform',
                                             'instrument',
-                                            'format',
                                             'from_dt',
                                             'to_dt',
                                             'center_dt',
-                                            'coord',
-                                            'geo_ref_points',
+                                            'asset',
+                                            'geometry',
+                                            'shapes',
+                                            'transforms',
+                                            'grids',
                                             'spatial_reference',
                                             'path',
                                             'bands']))
@@ -38,27 +40,6 @@ def geometry_isfinite(geometry):
         return True
     return False
 
-def get_extents(points, spatial=False):
-    ''' Gets the corner extents of a scene.
-
-    Args:
-        points: the points for the corners of a scene.
-        spatial: A bool to determine the coordinate type.
-
-    Returns:
-        A dict map of the coordinates. For example:
-
-        {'ul': {'lon': -180.0, 'lat': 40.0},
-         'ur': {'lon': 180.0, 'lat': 40.0},
-         'll': {'lon': -180.0, 'lat': -40.0},
-         'lr': {'lon': 180.0, 'lat': -40.0}
-        }
-    '''
-    keys = ('ll', 'ul', 'lr', 'ur')
-    if spatial:
-        return {key: dict(x=x, y=y) for key, (x, y) in zip(keys, points)}
-    return {key: dict(lon=x, lat=y) for key, (x, y) in zip(keys, points)}
-
 def parse(asset, image_data, product):
     """ Parses the GEE metadata for ODC use.
 
@@ -72,37 +53,48 @@ def parse(asset, image_data, product):
     bands = tuple(zip(product.measurements, image_data['bands']))
     _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name}/{image_data["name"]}'))
     creation_dt = image_data['startTime']
-    affine_values = list(image_data['bands'][0]['grid']['affineTransform'].values())
     spatial_reference = image_data['bands'][0]['grid']\
                         .get('crsCode', image_data['bands'][0]['grid'].get('crsWkt'))
-    polygon = polygon_from_transform(image_data['bands'][0]['grid']['dimensions']['width'],
-                                     image_data['bands'][0]['grid']['dimensions']['height'],
-                                     Affine(affine_values[0], 0, affine_values[1],
-                                            affine_values[2], 0, affine_values[3]),
-                                     spatial_reference)
-    geo_ref_points = get_extents(polygon.boundingbox.points, spatial=True)
-
     # Handle special GEE Infinity GeoJSON responses
     if geometry_isfinite(image_data['geometry']):
-        coord = get_extents(Geometry(image_data['geometry']).boundingbox.points)
+        geometry = Geometry(image_data['geometry'])
     else:
-        coord = dict(ul=dict(lon=-180.0, lat=90.0),
-                     ur=dict(lon=180.0, lat=90.0),
-                     ll=dict(lon=-180.0, lat=-90.0),
-                     lr=dict(lon=180.0, lat=-90.0))
+        geometry = Geometry(dict(type='Polygon',
+                                 coordinates=[[[-180.0, -90.0],
+                                               [-180.0, 90.0],
+                                               [180.0, 90.0],
+                                               [180.0, -90.0],
+                                               [-180.0, -90.0]]]))
+
+    grids = [band['grid'] for band in image_data['bands']]
+    grids_copy = grids.copy()
+    grids = list(filter(lambda grid:
+                        grids_copy.pop(grids_copy.index(grid)) \
+                        not in grids_copy, grids))
+    shapes = [[grid['dimensions']['height'], grid['dimensions']['width']] \
+              for grid in grids]
+    affine_values = [list(grid['affineTransform'].values()) \
+                     for grid in grids]
+    transforms = [list(Affine(affine_value[0], 0, affine_value[1],
+                              affine_value[2], 0, affine_value[3]))\
+                  for affine_value in affine_values]
+    bands = tuple(zip(product.measurements,
+                      image_data['bands']))
 
     metadata = Metadata(id=_id,
-                        asset=asset,
-                        creation_dt=creation_dt,
                         product=product.name,
+                        creation_dt=creation_dt,
+                        format='GeoTIFF',
                         platform=product.metadata_doc['properties'].get('eo:platform'),
                         instrument=product.metadata_doc['properties'].get('eo:instrument'),
-                        format='GeoTIFF',
                         from_dt=creation_dt,
                         to_dt=creation_dt,
                         center_dt=creation_dt,
-                        coord=coord,
-                        geo_ref_points=geo_ref_points,
+                        asset=asset,
+                        geometry=geometry,
+                        shapes=shapes,
+                        transforms=transforms,
+                        grids=grids,
                         spatial_reference=spatial_reference,
                         path=f'EEDAI:{image_data["name"]}:',
                         bands=bands)

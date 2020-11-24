@@ -57,32 +57,27 @@ def make_metadata_doc(*args, **kwargs):
     from odc_gee.parser import parse
     metadata = parse(*args, **kwargs)
     doc = {'id': metadata.id,
-           'creation_dt': metadata.creation_dt,
+           '$schema': 'https://schemas.opendatacube.org/dataset',
            'product': {'name': metadata.product},
-           'properties': {'eo:platform': metadata.platform,
+           'crs': 'EPSG:4326',
+           'properties': {'odc:processing_datetime': metadata.creation_dt,
+                          'odc:file_format': metadata.format,
+                          'eo:platform': metadata.platform,
                           'eo:instrument': metadata.instrument,
+                          'dtr:start_datetime': metadata.from_dt,
+                          'dtr:end_datetime': metadata.to_dt,
+                          'datetime': metadata.center_dt,
                           'gee:asset': metadata.asset},
-           'format': {'name': metadata.format},
-           'extent': {
-               'from_dt': metadata.from_dt,
-               'to_dt': metadata.to_dt,
-               'center_dt': metadata.center_dt,
-               'coord': metadata.coord,
-               },
-           'grid_spatial': {
-               'projection': {
-                   'geo_ref_points': metadata.geo_ref_points,
-                   'spatial_reference': metadata.spatial_reference,
-                   }
-               },
-           'image': {
-               'bands': {
-                   name: {
-                       'path': metadata.path + band['id'],
-                       'layer': 1,
-                       } for (name, band) in metadata.bands
-                   }
-               },
+           'geometry': metadata.geometry.json,
+           'grids': {idx if idx else 'default': dict(shape=metadata.shapes[idx],
+                                                     transform=metadata.transforms[idx])\
+                     for (idx, grid) in enumerate(metadata.grids)},
+           'measurements': {name: dict(grid=metadata.grids.index(band['grid']),
+                                       path=metadata.path + band['id'])\
+                                  if metadata.grids.index(band['grid']) else\
+                                  dict(path=metadata.path + band['id'])
+                            for (name, band) in metadata.bands},
+           'location': metadata.path.rstrip(':'),
            'lineage': {'source_datasets': {}}}
     return doc
 
