@@ -171,10 +171,12 @@ class Datacube(datacube.Datacube):
                           metadata=dict(product=dict(name=name),
                                         properties={'eo:platform':
                                                     stac_metadata['properties']\
-                                                    .get('eo:platform'),
+                                                    .get('eo:platform',
+                                                         stac_metadata['properties'].get('sar:platform')),
                                                     'eo:instrument':
                                                     stac_metadata['properties']\
-                                                    .get('eo:instrument'),
+                                                    .get('eo:instrument',
+                                                         stac_metadata['properties'].get('sar:instrument')),
                                                     'gee:asset': asset}),
                           measurements=measurements)
         if resolution and output_crs:
@@ -198,33 +200,39 @@ class Datacube(datacube.Datacube):
                 band_types = self.ee.Image(stac_metadata['id']).bandTypes().getInfo()
         except Exception as error:
             raise error
-        for band in stac_metadata['properties']['eo:bands']:
+        for band in stac_metadata['properties'].get('eo:bands',
+                                                    stac_metadata['properties'].get('sar:bands')):
             if 'empty' not in band['description'] and 'missing' not in band['description']:
-                band_type = get_type(band_types[band['name']])
-                measurement = dict(name=band['name'],
-                                   units=band.get('gee:unit', ''),
-                                   dtype=str(band_type.dtype),
-                                   nodata=band_type.min,
-                                   aliases=[to_snake(band['description'])])
-                if band.get('gee:bitmask'):
-                    measurement.update(
-                        flags_definition={to_snake(bitmask['description']):
-                                          dict(dict(bits=list(
-                                              range(bitmask['first_bit'],
-                                                    bitmask['first_bit'] + bitmask['bit_count'])),
-                                                    desctiption=bitmask['description'],
-                                                    values={value['value']:
-                                                            to_snake(value['description'])
-                                                            for value in bitmask['values']}))
-                                          for bitmask in band['gee:bitmask']['bitmask_parts']})
-                if band.get('gee:classes'):
-                    measurement.update(
-                        flags_definition={to_snake(_class['description']):
-                                          dict(bits=0,
-                                               description=_class['description'],
-                                               values={_class['value']: True})
-                                          for _class in band['gee:classes']})
-                yield datacube.model.Measurement(**measurement)
+                try:
+                    band_type = get_type(band_types[band['name']])
+                    measurement = dict(name=band['name'],
+                                       units=band.get('gee:unit', ''),
+                                       dtype=str(band_type.dtype),
+                                       nodata=band_type.min,
+                                       aliases=[to_snake(band['description']), to_snake(band['name'])])
+                    if band.get('gee:bitmask'):
+                        measurement.update(
+                            flags_definition={to_snake(bitmask['description']):
+                                              dict(dict(bits=list(
+                                                  range(bitmask['first_bit'],
+                                                        bitmask['first_bit'] + bitmask['bit_count'])),
+                                                        desctiption=bitmask['description'],
+                                                        values={value['value']:
+                                                                to_snake(value['description'])
+                                                                for value in bitmask['values']}))
+                                              for bitmask in band['gee:bitmask']['bitmask_parts']})
+                    if band.get('gee:classes'):
+                        measurement.update(
+                            flags_definition={to_snake(_class['description']):
+                                              dict(bits=0,
+                                                   description=_class['description'],
+                                                   values={_class['value']: True})
+                                              for _class in band['gee:classes']})
+                    yield datacube.model.Measurement(**measurement)
+                except KeyError:
+                    pass
+                except Exception as error:
+                    raise error
 
     def get_stac_metadata(self, asset):
         ''' Gets STAC metadata of an asset in the GEE catalog.
@@ -247,9 +255,10 @@ def generate_documents(asset, images, product):
         product (datacube.model.DatasetType): A product to associate datasets with.
     Returns: A generated list of datacube.model.Dataset objects.
     '''
+    from datacube.index.hl import prep_eo3
     from odc_gee.indexing import make_metadata_doc
     for image in images:
-        yield make_metadata_doc(asset, image, product)
+        yield prep_eo3(make_metadata_doc(asset, image, product))
 
 def get_type(band_type):
     ''' Gets the band unit type from GEE metadata.
@@ -262,8 +271,10 @@ def get_type(band_type):
     types = [numpy.iinfo(numpy.dtype(f'int{2**i}')) for i in range(3, 7)]\
              + [numpy.iinfo(numpy.dtype(f'uint{2**i}')) for i in range(3, 7)]\
              + [numpy.finfo(numpy.dtype(f'float{2**i}')) for i in range(4, 8)]
-    return list(filter(lambda x: True if x.min == band_type['min']
-                       and x.max == band_type['max'] else None, types))[0]
+    if band_type.get('min') and band_type.get('max'):
+        return list(filter(lambda x: True if x.min == band_type['min']
+                           and x.max == band_type['max'] else None, types))[0]
+    return list(filter(lambda x: numpy.dtype(band_type['precision']) == x.dtype, types))[0]
 
 def to_snake(string):
     ''' Cleans and formats strings from GEE metadata into snake case.
@@ -274,7 +285,7 @@ def to_snake(string):
     Returns: A cleaned string in snake case format.
     '''
     from re import sub, split
-    return sub(r'[, ]+', '_',
+    return sub(r'[, -]+', '_',
                split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
 
 def get_datasets(**kwargs):

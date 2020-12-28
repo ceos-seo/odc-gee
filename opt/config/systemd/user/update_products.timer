@@ -1,8 +1,8 @@
 [Unit]
-Description=Update products weekly
+Description=Update products daily
 
 [Timer]
-OnCalendar=weekly
+OnCalendar=daily
 Persistent=true
 
 [Install]

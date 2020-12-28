@@ -17,7 +17,7 @@ HOME = os.getenv("HOME")
 REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.json')
 
 @click.command()
-@click.option("--asset", required=True, type=click.STRING,
+@click.option("--asset", required=False, type=click.STRING, default=None,
               help="The GEE asset ID.")
 @click.option("--product", required=False, type=click.STRING, default=None,
               help="The datacube product name to index.")
@@ -52,6 +52,12 @@ def index_gee(**kwargs):
         logger.log(f'Indexing {kwargs.get("product")}.')
         datacube = earthengine.Datacube(app='GEE_Indexing_Script')
 
+        if kwargs.get('product') and not kwargs.get('asset'):
+            kwargs.update(asset=datacube.index.products.get_by_name(
+                kwargs['product']).metadata_doc['properties']['gee:asset'])
+        elif not kwargs.get('asset'):
+            raise ValueError('Missing asset ID, check if asset has been indexed.')
+
         if kwargs['generate_product']:
             kwargs.update(product=generate_product(datacube, **kwargs).name)
         if kwargs['region']:
@@ -71,13 +77,15 @@ def index_gee(**kwargs):
         parameters, kwargs = datacube.build_parameters(**kwargs)
 
 
-        click.echo('Total in database before  {}'\
-                   .format(datacube.index.datasets.count(product=kwargs['product'])))
+        if kwargs['verbosity'] >= 2:
+            click.echo('Total in database before  {}'\
+                       .format(datacube.index.datasets.count(product=kwargs['product'])))
         _sum = indexer(kwargs['asset'], kwargs['product'],
                        parameters, update=kwargs['update_product'])
-        click.echo(f'Sum of images found: {_sum}')
-        click.echo('Total in database after  {}'\
-                   .format(datacube.index.datasets.count(product=kwargs['product'])))
+        if kwargs['verbosity'] >= 2:
+            click.echo(f'Sum of images found: {_sum}')
+            click.echo('Total in database after  {}'\
+                       .format(datacube.index.datasets.count(product=kwargs['product'])))
         logger.log(f'Successfully indexed {kwargs.get("product")}.')
     except:
         logger.log(f'Failed to index {kwargs.get("product")}.', logger.lvl.ERROR)
