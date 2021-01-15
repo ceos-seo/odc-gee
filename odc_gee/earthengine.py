@@ -271,7 +271,7 @@ def get_type(band_type):
     types = [numpy.iinfo(numpy.dtype(f'int{2**i}')) for i in range(3, 7)]\
              + [numpy.iinfo(numpy.dtype(f'uint{2**i}')) for i in range(3, 7)]\
              + [numpy.finfo(numpy.dtype(f'float{2**i}')) for i in range(4, 8)]
-    if band_type.get('min') and band_type.get('max'):
+    if band_type.get('min') is not None and band_type.get('max') is not None:
         return list(filter(lambda x: True if x.min == band_type['min']
                            and x.max == band_type['max'] else None, types))[0]
     return list(filter(lambda x: numpy.dtype(band_type['precision']) == x.dtype, types))[0]
