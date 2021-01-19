@@ -30,14 +30,14 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.js
 @click.option("--time", type=click.STRING, required=False, default=None,
               help="The time extents to index for the product [example: (2013-01-01, 2020-01-01].")
 @click.option("--generate_product", "-gp", is_flag=True, flag_value=True,
-              help="Generates a new product.")
+              help="Generates a new product from GEE metadata.")
 @click.option("--resolution", type=click.STRING, required=False, default=None,
               help="The resolution for the product if generating a new product definition "
               "[example: (-0.0001, 0.0001)].")
 @click.option("--output_crs", type=click.STRING, required=False, default=None,
               help="The CRS of the product if generating new product definition.")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,
-              help="Updates the product in the index.")
+              help="Updates the entire product in the index.")
 @click.option("--rolling_update", "-r", is_flag=True, flag_value=True,
               help="Updates the product with latest available times.")
 @click.option("--verbosity", "-v", required=False, type=click.INT, default=1,
