@@ -10,11 +10,11 @@ API](https://developers.google.com/earth-engine/reference) and the [GEE STAC
 API](https://earthengine-stac.storage.googleapis.com/).
 
 ## Installation
-The package can be installed using Python setuptools:
-`python setup.py build && python setup.py install`
-
-Alternatively:
+Preferred method is to use pip:
 `pip install -e odc-gee`
+
+Alternatively, the package can be installed using Python setuptools:
+`python setup.py build && python setup.py install`
 
 ## Configuration
 The scripts and python modules in this package use the following environment
@@ -50,17 +50,41 @@ The package also provides Python modules and optional utilities like systemd
 timer and service for automated indexing. Modules can be accessed as such:
 `import odc_gee`.
 
+### Datacube Wrapper
 Lastly, a Datacube wrapper has been created with the intent of handling GEE
 OAuth in notebooks if credentials aren't provided. This wrapper also intends to
 allow for real-time indexing capabilities of GEE products so that the manual
-indexing process is not required at the limitation of product customization. An
-example:
+indexing process is not required at the limitation of product customization.
 
+#### Normal ODC behavior
+This assumes an indexed product with `ls8_google` as the product name, a defined CRS/resolution, and
+measurements with red/green/blue aliases. If no credentials file is supplied then the wrapper will
+try to authenticate with Google using OAuth.
 
 	from odc_gee.earthengine import Datacube
 
+	latitude = (-17.63, -17.75)
+	longitude = (168.25, 168.15)
+	time=('2019-01-01', '2019-02-02')
+
+	ds = dc.load(product='ls8_google', measurements=['red', 'green', 'blue'],
+		     group_by='solar_day', latitude=latitude, longitude=longitude, time=time)
+
+#### Real-time indexing
+This capability looks similar to a normal ODC load, but it requires an asset ID to be provided and
+can also accept some GEE API query parameters.
+
+	from odc_gee.earthengine import Datacube
+
+	latitude = (-17.63, -17.75)
+	longitude = (168.25, 168.15)
+	time=('2019-01-01', '2019-02-02')
+
 	dc = Datacube()
-	dc.load(asset='LANDSAT/LC08/C01/T1_SR', measurements=['B4', 'B3', 'B2'],
-		latitude=latitude, longitude=longitude, time=time,
-		group_by='solar_day', resolution=(-2.69493352e-4, 2.69493352e-4),
-		output_crs='EPSG:4326')
+	ds = dc.load(asset='LANDSAT/LC08/C01/T1_SR', measurements=['B4', 'B3', 'B2'],
+		     latitude=latitude, longitude=longitude, time=time,
+		     group_by='solar_day', resolution=(-2.69493352e-4, 2.69493352e-4),
+		     output_crs='EPSG:4326')
+	ds.isel(time=0).to_array().plot.imshow(vmin=0, vmax=3000, size=8);
+
+![](/docs/images/real-time-example.png)
