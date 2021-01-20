@@ -36,6 +36,15 @@ class Datacube(datacube.Datacube):
             self._refresh_credentials()
         super().__init__(*args, **kwargs)
 
+    def __del__(self):
+        # Manually clean up sensitive info just in case
+        if os.environ.get('EEDA_BEARER'):
+            os.environ.pop('EEDA_BEARER')
+        if self.request:
+            self.request.session.close()
+        self.request = None
+        self.credentials = None
+
     def load(self, *args, **kwargs):
         ''' An overloaded load function from Datacube.
 
