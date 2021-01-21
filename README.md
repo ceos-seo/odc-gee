@@ -67,6 +67,7 @@ try to authenticate with Google using OAuth.
 	longitude = (168.25, 168.15)
 	time=('2019-01-01', '2019-02-02')
 
+	dc = Datacube()
 	ds = dc.load(product='ls8_google', measurements=['red', 'green', 'blue'],
 		     group_by='solar_day', latitude=latitude, longitude=longitude, time=time)
 
