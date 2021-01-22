@@ -56,7 +56,7 @@ OAuth in notebooks if credentials aren't provided. This wrapper also intends to
 allow for real-time indexing capabilities of GEE products so that the manual
 indexing process is not required at the limitation of product customization.
 
-#### Normal ODC behavior
+#### Normal ODC behavior with GEE OAuth
 This assumes an indexed product with `ls8_google` as the product name, a defined CRS/resolution, and
 measurements with red/green/blue aliases. If no credentials file is supplied then the wrapper will
 try to authenticate with Google using OAuth.
