@@ -106,6 +106,7 @@ can also accept some GEE API query parameters.
 		     latitude=latitude, longitude=longitude, time=time,
 		     group_by='solar_day', resolution=(-2.69493352e-4, 2.69493352e-4),
 		     output_crs='EPSG:4326')
-	ds.isel(time=0).to_array().plot.imshow(vmin=0, vmax=3000, size=8);
+	ds.isel(time=0).to_array().plot.imshow(vmin=0, vmax=3000, size=8,
+					       aspect=ds.dims['longitude']/ds.dims['latitude']);
 
 ![](/docs/images/real-time-example.png)
