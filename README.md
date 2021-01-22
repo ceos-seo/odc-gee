@@ -85,7 +85,7 @@ try to authenticate with Google using OAuth.
 
 	latitude = (-17.63, -17.75)
 	longitude = (168.25, 168.15)
-	time=('2019-01-01', '2019-02-02')
+	time = ('2019-01-01', '2019-02-02')
 
 	dc = Datacube()
 	ds = dc.load(product='ls8_google', measurements=['red', 'green', 'blue'],
@@ -99,7 +99,7 @@ can also accept some GEE API query parameters.
 
 	latitude = (-17.63, -17.75)
 	longitude = (168.25, 168.15)
-	time=('2019-01-01', '2019-02-02')
+	time = ('2019-01-01', '2019-02-02')
 
 	dc = Datacube()
 	ds = dc.load(asset='LANDSAT/LC08/C01/T1_SR', measurements=['B4', 'B3', 'B2'],
