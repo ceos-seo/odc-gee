@@ -10,7 +10,7 @@ API](https://developers.google.com/earth-engine/reference) and the [GEE STAC
 API](https://earthengine-stac.storage.googleapis.com/).
 
 ## Prerequisites
-In order to use ODC with GEE, you will need to be signed up to be a GEE
+In order to use ODC with GEE, you will need to be signed up as a GEE
 developer. If not, you may send an [application to Google
 here](https://signup.earthengine.google.com/). This process will require a
 Google Account and to follow Google's terms of service for using their
@@ -28,38 +28,47 @@ Alternatively, using Python setuptools:
 `python setup.py build && python setup.py install`
 
 ## Configuration
-The scripts and python modules in this package use the following environment
-variables:
+The ODC-GEE package requires an ODC database to be running and configured.
+Instructions for setting up an ODC environment can be found on the [ODC
+readthedocs
+page](https://datacube-core.readthedocs.io/en/latest/ops/db_setup.html).
 
-* `DATACUBE_CONFIG_PATH`: The ODC configuration file.
+The scripts and python modules in this package allow for the following
+environment variables:
+
 * `GOOGLE_APPLICATION_CREDENTIALS`: Optional; the service account credentials
   JSON file (default: ~/.config/odc-gee/credentials.json).
 * `REGIONS_CONFIG`: Optional; a JSON file for storing latitude/longitude
   locations if not performing global indexing (default:
 ~/.config/odc-gee/regions.json).
 
-Some example config files are provided in the `./opt/config` directory.
+Some example configuration files are provided in the `./opt/config` directory.
+Change `$USER` to the username that is using this package.
 
 ## Usage
 The package comes with two scripts. One is to create ODC product definitions
-using GEE metadata. The other is to index an ODC product using GEE metadata.
-The index script can index for an existing ODC product in the database, or it
-create a new generalized product based on the metadata and then index it.
+using GEE metadata. The other is for indexing an ODC product for use with GEE.
 
 New product creation is done using `new_product`. An example: `new_product
 --asset <asset_id> <product_name.yaml>`. This will try to automate the entire
 product definition creation process as defined in the [ODC
 documentation](https://datacube-core.readthedocs.io/en/latest/ops/product.html).
 Check the resulting document to see if anything needs changing for your desired
-result.
+result. You can then add the resulting product definition to the ODC database:
+`datacube product add <product_name.yaml>`.
 
-The indexing of datasets can be done using the `index_gee` command. An example:
-`index_gee --asset LANDSAT/LC08/C01/T1_SR --product ls8_google`. Use `index_gee
---help` to see all available options.
+The indexing of datasets can be done using the `index_gee` command. The script
+will format datasets to conform to a product definition if the supplied product
+parameter is a product name of a definition in the ODC database. Otherwise,
+the script will create a generic product definition and dataset document based
+on GEE metadata. Example usage: `index_gee --product ls8_google`. Use
+`index_gee --help` to see all available options.
 
-The package also provides Python modules and optional utilities like systemd
-timer and service for automated indexing. Modules can be accessed as such:
-`import odc_gee`.
+The package also provides Python modules accessible by `import odc_gee`.
+
+Optional items such as systemd timers and product update scripts are also
+provided in the `./opt` folder. Change `$USER` to the username that is using
+this package.
 
 ### Datacube Wrapper
 Lastly, a Datacube wrapper has been created with the intent of handling GEE
