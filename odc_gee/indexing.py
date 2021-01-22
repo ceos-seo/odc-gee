@@ -10,11 +10,6 @@ from contextlib import redirect_stderr
 import io
 import warnings
 
-from tqdm import tqdm
-import pandas as pd
-
-from datacube import Datacube
-
 IndexParams = namedtuple('IndexParams', 'asset product filters')
 
 def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
@@ -50,75 +45,41 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
         raise ValueError(err)
     return dataset
 
-# TODO: Change this to use EO3 for better compatibility with GEE metadata.
 def make_metadata_doc(*args, **kwargs):
     """ Makes the dataset document from the parsed metadata.
 
     Args:
+        asset (str): the asset ID of the product in the GEE catalog.
         image_data (dict): the image metadata to parse.
-        product (pandas.DataFrame): the product information from the ODC index.
-        meaurements (pandas.DataFrame): the measurements information from the ODC index.
+        product (datacube.model.DatasetType): the product information from the ODC index.
     Returns: a dictionary of the dataset document.
     """
     from odc_gee.parser import parse
     metadata = parse(*args, **kwargs)
     doc = {'id': metadata.id,
-           'creation_dt': metadata.creation_dt,
-           'product_type': metadata.product_type,
-           'platform': {'code': metadata.platform},
-           'instrument': {'name': metadata.instrument},
-           'format': {'name': metadata.format},
-           'extent': {
-               'from_dt': metadata.from_dt,
-               'to_dt': metadata.to_dt,
-               'center_dt': metadata.center_dt,
-               'coord': metadata.coord,
-               },
-           'grid_spatial': {
-               'projection': {
-                   'geo_ref_points': metadata.geo_ref_points,
-                   'spatial_reference': metadata.spatial_reference,
-                   }
-               },
-           'image': {
-               'bands': {
-                   name: {
-                       'path': 'EEDAI:' + metadata.path + ':' + band,
-                       'layer': 1,
-                       } for (name, band) in metadata.bands
-                   }
-               },
+           '$schema': 'https://schemas.opendatacube.org/dataset',
+           'product': {'name': metadata.product},
+           'crs': 'EPSG:4326',
+           'properties': {'odc:processing_datetime': metadata.creation_dt,
+                          'odc:file_format': metadata.format,
+                          'eo:platform': metadata.platform,
+                          'eo:instrument': metadata.instrument,
+                          'dtr:start_datetime': metadata.from_dt,
+                          'dtr:end_datetime': metadata.to_dt,
+                          'datetime': metadata.center_dt,
+                          'gee:asset': metadata.asset},
+           'geometry': metadata.geometry.json,
+           'grids': {idx if idx else 'default': dict(shape=metadata.shapes[idx],
+                                                     transform=metadata.transforms[idx])\
+                     for (idx, grid) in enumerate(metadata.grids)},
+           'measurements': {name: dict(grid=metadata.grids.index(band['grid']),
+                                       path=metadata.path + band['id'])\
+                                  if metadata.grids.index(band['grid']) else\
+                                  dict(path=metadata.path + band['id'])
+                            for (name, band) in metadata.bands},
+           'location': metadata.path.rstrip(':'),
            'lineage': {'source_datasets': {}}}
     return doc
-
-def index_with_progress(years, *args, **kwargs):
-    """ Indexes with progress bar.
-
-    Args:
-        years (list): the list of years being indexed.
-        asset (str): the asset identifier to index.
-        product (str): the product name to index.
-        filters (dict): API filters to use when searching for datasets to index.
-        update (bool): will update existing datasets if set True.
-    Returns:
-        A tuple of the Requests response from the API query
-        and the recursive sum of datasets found.
-    """
-    _sum = 0
-    for year in tqdm(range(len(years)), desc='Yearly Progress'):
-        _range = pd.date_range(f'{years[year]}-01-01',
-                               f'{years[year]+1}-01-01', freq='1MS')
-        for idx, date in tqdm(enumerate(_range[:-1]),
-                              total=len(_range)-1,
-                              desc=f'Progress for {years[year]}'):
-            resp = None
-            if idx < len(_range):
-                args[2].update(startTime=f'{date.isoformat()}Z',
-                               endTime=f'{_range[idx+1].isoformat()}Z')
-            else:
-                break
-            resp, _sum = indexer(response=resp, image_sum=_sum, *args, **kwargs)
-    return resp, _sum
 
 def indexer(*args, update=False, response=None, image_sum=0):
     """ Performs the parsing and
@@ -134,39 +95,25 @@ def indexer(*args, update=False, response=None, image_sum=0):
         A tuple of the Requests response from the API query
         and the recursive sum of datasets found.
     """
-    from odc_gee.earthengine import EarthEngine
+    from odc_gee import earthengine
 
     index_params = IndexParams(*args)
 
-    datacube = Datacube(app='EE_Indexer')
-    earthengine = EarthEngine()
+    datacube = earthengine.Datacube(app='EE_Indexer')
 
     if index_params.product is None\
        or not datacube.list_products().name.isin([index_params.product]).any():
         raise ValueError("Missing product.")
 
-    product = datacube.list_products().query(f'name=="{index_params.product}"')
-    measurements = datacube.list_measurements()\
-                   .query(f'product=="{index_params.product}"')
-    product_bands = [alias for aliases in measurements.aliases.values for alias in aliases]
+    product = datacube.index.products.get_by_name(index_params.product)
+    product_bands = list(product.measurements.keys())
 
-    while(response is None or 'nextPageToken' in response.keys()):
-        if response and 'nextPageToken' in response.keys():
-            index_params.filters.update(pageToken=response['nextPageToken'])
-            response = earthengine.list_images(index_params.asset,
-                                               **index_params.filters).json()
-            index_params.filters.pop('pageToken')
-        else:
-            response = earthengine.list_images(index_params.asset,
-                                               **index_params.filters).json()
-        if len(response) != 0:
-            for image in response['images']:
-                bands = [band['id'] for band in image['bands']]
-                band_length = len(list(filter(lambda x: x in product_bands, bands)))
-                if  band_length == len(measurements.aliases):
-                    doc = make_metadata_doc(image, product, measurements)
-                    add_dataset(doc, f'EEDAI:{image["name"]}',
-                                datacube.index, products=[index_params.product], update=update)
-            image_sum = image_sum + len(response['images'])
-
-    return response, image_sum
+    for image in datacube.get_images(index_params.filters):
+        bands = [band['id'] for band in image['bands']]
+        band_length = len(list(filter(lambda x: x in product_bands, bands)))
+        if band_length == len(product.measurements):
+            doc = make_metadata_doc(index_params.asset, image, product)
+            add_dataset(doc, f'EEDAI:{image["name"]}',
+                        datacube.index, products=[index_params.product], update=update)
+        image_sum += 1
+    return image_sum
