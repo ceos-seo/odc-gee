@@ -9,11 +9,22 @@ takes advantage of the [GEE REST
 API](https://developers.google.com/earth-engine/reference) and the [GEE STAC
 API](https://earthengine-stac.storage.googleapis.com/).
 
+## Prerequisites
+In order to use ODC with GEE, you will need to be signed up to be a GEE
+developer. If not, you may send an [application to Google
+here](https://signup.earthengine.google.com/). This process will require a
+Google Account and to follow Google's terms of service for using their
+product.
+
 ## Installation
+First clone/download this repository to where you want the package to reside.
+Example: `git clone https://github.com/ceos-seo/odc-gee.git`
+
+Next you will need to register the package and install dependencies.
 Preferred method is to use pip:
 `pip install -e odc-gee`
 
-Alternatively, the package can be installed using Python setuptools:
+Alternatively, using Python setuptools:
 `python setup.py build && python setup.py install`
 
 ## Configuration

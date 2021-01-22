@@ -35,9 +35,10 @@ credentials for the Service Account. **Keep this file secure and don’t
 lose it.** This file will act as the API key for accessing GEE data. Once
 you’ve got the file, click done.
 
-This last step is only necessary if the GEE REST API is still unreleased to the
-public and if you have the proper permissions to do so. If those conditions are
-met then you will have to email a Google employee your Service Account email as
+If you encounter any issues with using your service account credentials then
+you may have to get the proper permission to use GEE with your account from
+Google. This process will involve contacting Google where you may have to
+supply a Google employee your Service Account email as
 indicated by the red box from the
 [API
 & Services
