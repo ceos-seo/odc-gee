@@ -153,7 +153,6 @@ class Datacube(datacube.Datacube):
             return parameters, kwargs
         return parameters, kwargs
 
-    # TODO: Need to determine how to handle measurements.
     def generate_product(self, asset=None, name=None,
                          resolution=None, output_crs=None, **kwargs):
         ''' Generates an ODC product from GEE asset metadata.
