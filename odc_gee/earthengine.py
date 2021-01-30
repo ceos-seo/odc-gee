@@ -23,11 +23,12 @@ class Datacube(datacube.Datacube):
     '''
     def __init__(self, *args, credentials=CREDENTIALS, **kwargs):
         self.ee = import_module('ee')
+        self.request = None
+        self.credentials = None
         if Path(credentials).exists():
             os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=credentials)
             self.credentials = self.ee.ServiceAccountCredentials('', key_file=credentials)
             self.ee.Initialize(self.credentials)
-            self.request = None
         else:
             self.ee.Authenticate()
             self.ee.Initialize()
