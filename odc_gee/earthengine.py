@@ -21,6 +21,12 @@ class Datacube(datacube.Datacube):
         request: The Request object used in the session.
         ee: A reference to the ee (earthengine-api) module.
     '''
+    __instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = object.__new__(cls, *args, **kwargs)
+        return cls.__instance
+
     def __init__(self, *args, credentials=CREDENTIALS, **kwargs):
         self.ee = import_module('ee')
         self.request = None
@@ -181,11 +187,13 @@ class Datacube(datacube.Datacube):
                                         properties={'eo:platform':
                                                     stac_metadata['properties']\
                                                     .get('eo:platform',
-                                                         stac_metadata['properties'].get('sar:platform')),
+                                                         stac_metadata['properties']\
+                                                         .get('sar:platform')),
                                                     'eo:instrument':
                                                     stac_metadata['properties']\
                                                     .get('eo:instrument',
-                                                         stac_metadata['properties'].get('sar:instrument')),
+                                                         stac_metadata['properties']\
+                                                         .get('sar:instrument')),
                                                     'gee:asset': asset}),
                           measurements=measurements)
         if resolution and output_crs:
@@ -218,13 +226,15 @@ class Datacube(datacube.Datacube):
                                        units=band.get('gee:unit', ''),
                                        dtype=str(band_type.dtype),
                                        nodata=band_type.min,
-                                       aliases=[to_snake(band['description']), to_snake(band['name'])])
+                                       aliases=[to_snake(band['description']),
+                                                to_snake(band['name'])])
                     if band.get('gee:bitmask'):
                         measurement.update(
                             flags_definition={to_snake(bitmask['description']):
                                               dict(dict(bits=list(
                                                   range(bitmask['first_bit'],
-                                                        bitmask['first_bit'] + bitmask['bit_count'])),
+                                                        bitmask['first_bit'] \
+                                                                + bitmask['bit_count'])),
                                                         desctiption=bitmask['description'],
                                                         values={value['value']:
                                                                 to_snake(value['description'])
