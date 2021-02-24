@@ -65,14 +65,17 @@ class Datacube(datacube.Datacube):
         Returns: The queried xarray.Dataset.
         '''
         try:
+            if kwargs.get('product') and not isinstance(kwargs.get('product'),
+                                                        datacube.model.DatasetType):
+                kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
+                kwargs.update(asset=kwargs.get('product').metadata_doc\
+                                    .get('properties').get('gee:asset'))
+            elif kwargs.get('asset'):
+                kwargs.update(product=self.generate_product(**kwargs))
+
             if kwargs.get('asset'):
                 parameters, kwargs = self.build_parameters(**kwargs)
                 images = self.get_images(parameters)
-                if kwargs.get('product') and not isinstance(kwargs.get('product'),
-                                                            datacube.model.DatasetType):
-                    kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
-                else:
-                    kwargs.update(product=self.generate_product(**kwargs))
                 kwargs.update(datasets=get_datasets(images=images, **kwargs))
                 kwargs.pop('asset')
                 datasets = super().load(*args, **kwargs)
