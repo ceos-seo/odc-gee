@@ -35,6 +35,9 @@ credentials for the Service Account. **Keep this file secure and don’t
 lose it.** This file will act as the API key for accessing GEE data. Once
 you’ve got the file, click done.
 
+>**Note:** It may take some time for your credentials to propagate before they
+can be used.
+
 If you encounter any issues with using your service account credentials then
 you may have to get the proper permission to use GEE with your account from
 Google. This process will involve contacting Google where you may have to
