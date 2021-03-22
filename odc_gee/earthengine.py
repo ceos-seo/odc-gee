@@ -21,13 +21,20 @@ class Datacube(datacube.Datacube):
         request: The Request object used in the session.
         ee: A reference to the ee (earthengine-api) module.
     '''
+    __instance = None
+    def __new__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = object.__new__(cls, *args, **kwargs)
+        return cls.__instance
+
     def __init__(self, *args, credentials=CREDENTIALS, **kwargs):
         self.ee = import_module('ee')
+        self.request = None
+        self.credentials = None
         if Path(credentials).exists():
             os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=credentials)
             self.credentials = self.ee.ServiceAccountCredentials('', key_file=credentials)
             self.ee.Initialize(self.credentials)
-            self.request = None
         else:
             self.ee.Authenticate()
             self.ee.Initialize()
@@ -58,14 +65,17 @@ class Datacube(datacube.Datacube):
         Returns: The queried xarray.Dataset.
         '''
         try:
+            if kwargs.get('product') and not isinstance(kwargs.get('product'),
+                                                        datacube.model.DatasetType):
+                kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
+                kwargs.update(asset=kwargs.get('product').metadata_doc\
+                                    .get('properties').get('gee:asset'))
+            elif kwargs.get('asset'):
+                kwargs.update(product=self.generate_product(**kwargs))
+
             if kwargs.get('asset'):
                 parameters, kwargs = self.build_parameters(**kwargs)
                 images = self.get_images(parameters)
-                if kwargs.get('product') and not isinstance(kwargs.get('product'),
-                                                            datacube.model.DatasetType):
-                    kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
-                else:
-                    kwargs.update(product=self.generate_product(**kwargs))
                 kwargs.update(datasets=get_datasets(images=images, **kwargs))
                 kwargs.pop('asset')
                 datasets = super().load(*args, **kwargs)
@@ -153,7 +163,6 @@ class Datacube(datacube.Datacube):
             return parameters, kwargs
         return parameters, kwargs
 
-    # TODO: Need to determine how to handle measurements.
     def generate_product(self, asset=None, name=None,
                          resolution=None, output_crs=None, **kwargs):
         ''' Generates an ODC product from GEE asset metadata.
@@ -181,11 +190,13 @@ class Datacube(datacube.Datacube):
                                         properties={'eo:platform':
                                                     stac_metadata['properties']\
                                                     .get('eo:platform',
-                                                         stac_metadata['properties'].get('sar:platform')),
+                                                         stac_metadata['properties']\
+                                                         .get('sar:platform')),
                                                     'eo:instrument':
                                                     stac_metadata['properties']\
                                                     .get('eo:instrument',
-                                                         stac_metadata['properties'].get('sar:instrument')),
+                                                         stac_metadata['properties']\
+                                                         .get('sar:instrument')),
                                                     'gee:asset': asset}),
                           measurements=measurements)
         if resolution and output_crs:
@@ -218,13 +229,15 @@ class Datacube(datacube.Datacube):
                                        units=band.get('gee:unit', ''),
                                        dtype=str(band_type.dtype),
                                        nodata=band_type.min,
-                                       aliases=[to_snake(band['description']), to_snake(band['name'])])
+                                       aliases=[to_snake(band['description']),
+                                                to_snake(band['name'])])
                     if band.get('gee:bitmask'):
                         measurement.update(
                             flags_definition={to_snake(bitmask['description']):
                                               dict(dict(bits=list(
                                                   range(bitmask['first_bit'],
-                                                        bitmask['first_bit'] + bitmask['bit_count'])),
+                                                        bitmask['first_bit'] \
+                                                                + bitmask['bit_count'])),
                                                         desctiption=bitmask['description'],
                                                         values={value['value']:
                                                                 to_snake(value['description'])

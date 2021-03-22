@@ -1,6 +1,7 @@
 # pylint: disable=logging-format-interpolation
 """ Module for useful logging functionality. """
 from os import path
+from logging import handlers
 from pathlib import Path
 from types import SimpleNamespace
 import logging
@@ -27,9 +28,9 @@ class Logger:
         self.logger.setLevel(self.lvl.DEBUG)
 
         # Setup logging to log.txt file with rotation
-        file_handler = logging.handlers.TimedRotatingFileHandler(f'{base_dir}/log/{name}.log',
-                                                                 when='d', interval=30,
-                                                                 backupCount=12)
+        file_handler = handlers.TimedRotatingFileHandler(f'{base_dir}/log/{name}.log',
+                                                         when='d', interval=30,
+                                                         backupCount=12)
         # Always log debug messages
         file_handler.setLevel(self.lvl.DEBUG)
 
