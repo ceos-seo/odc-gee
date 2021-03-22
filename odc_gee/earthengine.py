@@ -143,12 +143,13 @@ class Datacube(datacube.Datacube):
         '''
         asset = kwargs['asset']
         parameters = dict(parent=self.ee.data.convert_asset_id_to_asset_name(asset))
-        if kwargs.get('latitude') and kwargs.get('longitude'):
+        if (kwargs.get('latitude') is not None and any(kwargs.get('latitude')))\
+                and (kwargs.get('longitude') is not None and any(kwargs.get('longitude'))):
             parameters.update(
                 region=self.ee.Geometry.Rectangle(coords=(kwargs['longitude'][0],
                                                           kwargs['latitude'][0],
-                                                          kwargs['longitude'][1],
-                                                          kwargs['latitude'][1])).getInfo())
+                                                          kwargs['longitude'][-1],
+                                                          kwargs['latitude'][-1])).getInfo())
         if kwargs.get('time'):
             if isinstance(kwargs['time'], (list, tuple)):
                 parameters.update(startTime=numpy.datetime64(kwargs['time'][0])\
