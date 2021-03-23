@@ -150,15 +150,24 @@ class Datacube(datacube.Datacube):
                                                           kwargs['latitude'][0],
                                                           kwargs['longitude'][-1],
                                                           kwargs['latitude'][-1])).getInfo())
+        elif (kwargs.get('lat') is not None and any(kwargs.get('lat')))\
+                and (kwargs.get('lon') is not None and any(kwargs.get('lon'))):
+            parameters.update(
+                region=self.ee.Geometry.Rectangle(coords=(kwargs['lon'][0],
+                                                          kwargs['lat'][0],
+                                                          kwargs['lon'][-1],
+                                                          kwargs['lat'][-1])).getInfo())
         if kwargs.get('time'):
-            if isinstance(kwargs['time'], (list, tuple)):
-                parameters.update(startTime=numpy.datetime64(kwargs['time'][0])\
-                              .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-                parameters.update(endTime=numpy.datetime64(kwargs['time'][-1])\
-                              .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
+            if isinstance(kwargs['time'], (list, tuple, numpy.ndarray)):
+                parameters.update(startTime=numpy.datetime64(kwargs['time'][0], 's')\
+                                            .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
+                parameters.update(endTime=numpy.datetime64(kwargs['time'][-1], 's')\
+                                          .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
             else:
-                parameters.update(startTime=numpy.datetime64(kwargs['time'])\
-                              .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
+                parameters.update(startTime=numpy.datetime64(kwargs['time'], 's')\
+                                            .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
+                parameters.update(endTime=(numpy.datetime64(kwargs['time'], 's')+1)\
+                                          .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
         if query:
             parameters.update(**query)
             return parameters, kwargs
