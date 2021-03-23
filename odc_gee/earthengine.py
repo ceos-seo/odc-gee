@@ -157,6 +157,22 @@ class Datacube(datacube.Datacube):
                                                           kwargs['lat'][0],
                                                           kwargs['lon'][-1],
                                                           kwargs['lat'][-1])).getInfo())
+        # This solution may need work to fix loading coord systems other than EPSG:4326
+        elif (kwargs.get('y') is not None and any(kwargs.get('y')))\
+                and (kwargs.get('x') is not None and any(kwargs.get('x'))):
+            if kwargs.get('product') and isinstance(kwargs.get('product'),
+                                                    datacube.model.DatasetType):
+                proj = str(kwargs['product'].grid_spec.crs)
+            elif kwargs.get('crs'):
+                proj = kwargs.get('crs')
+            else:
+                proj = 'EPSG:4326'
+            parameters.update(
+                region=self.ee.Geometry.Rectangle(coords=(kwargs['x'][0],
+                                                          kwargs['y'][0],
+                                                          kwargs['x'][-1],
+                                                          kwargs['y'][-1]),
+                                                  proj=proj).getInfo())
         if kwargs.get('time'):
             if isinstance(kwargs['time'], (list, tuple, numpy.ndarray)):
                 parameters.update(startTime=numpy.datetime64(kwargs['time'][0], 's')\
