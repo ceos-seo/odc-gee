@@ -26,20 +26,6 @@ Metadata = namedtuple('Metadata', ','.join(['id',
                                             'path',
                                             'bands']))
 
-def geometry_isfinite(geometry):
-    """ Handles invalid GeoJSON containing Infinite values.
-
-    Args:
-        geometry (list): the coordinates of the GeoJSON.
-    Returns:
-        True if the coordinates contain Infinte values
-        False if the coordinate do not.
-    """
-    array = np.array(geometry['coordinates'][0], dtype=np.float32)
-    if np.isfinite(array).sum() == array.size:
-        return True
-    return False
-
 def parse(asset, image_data, product):
     """ Parses the GEE metadata for ODC use.
 
@@ -56,15 +42,10 @@ def parse(asset, image_data, product):
     spatial_reference = image_data['bands'][0]['grid']\
                         .get('crsCode', image_data['bands'][0]['grid'].get('crsWkt'))
     # Handle special GEE Infinity GeoJSON responses
-    if geometry_isfinite(image_data['geometry']):
-        geometry = Geometry(image_data['geometry'])
-    else:
-        geometry = Geometry(dict(type='Polygon',
-                                 coordinates=[[[-180.0, -90.0],
-                                               [-180.0, 90.0],
-                                               [180.0, 90.0],
-                                               [180.0, -90.0],
-                                               [-180.0, -90.0]]]))
+    image_data['geometry']['coordinates'][0] = [[np.float32(x), np.float32(y)]
+                                                for (x, y) \
+                                                in image_data['geometry']['coordinates'][0]]
+    geometry = Geometry(image_data['geometry'])
 
     grids = [band['grid'] for band in image_data['bands']]
     grids_copy = grids.copy()
