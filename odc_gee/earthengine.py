@@ -22,7 +22,7 @@ class Datacube(datacube.Datacube):
         ee: A reference to the ee (earthengine-api) module.
     '''
     __instance = None
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, credentials=CREDENTIALS, **kwargs):
         if cls.__instance is None:
             cls.__instance = object.__new__(cls, *args, **kwargs)
         return cls.__instance
