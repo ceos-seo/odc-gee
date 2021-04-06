@@ -3,6 +3,7 @@
 from importlib import import_module
 from pathlib import Path
 import os
+import weakref
 
 from rasterio.errors import RasterioIOError
 import numpy
@@ -22,35 +23,42 @@ class Datacube(datacube.Datacube):
         ee: A reference to the ee (earthengine-api) module.
     '''
     __instance = None
-    def __new__(cls, *args, credentials=CREDENTIALS, **kwargs):
+    def __new__(cls, *args, **kwargs):
         if cls.__instance is None:
             cls.__instance = object.__new__(cls, *args, **kwargs)
         return cls.__instance
 
-    def __init__(self, *args, credentials=CREDENTIALS, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.ee = import_module('ee')
-        self.request = None
-        self.credentials = None
-        if Path(credentials).exists():
-            os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=credentials)
-            self.credentials = self.ee.ServiceAccountCredentials('', key_file=credentials)
+        if not hasattr(self, 'request') or not hasattr(self, 'credentials'):
+            self.request = None
+            self.credentials = None
+        if kwargs.get('credentials') or Path(CREDENTIALS).exists():
+            os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=kwargs.get('credentials',
+                                                                        CREDENTIALS))
+            self.credentials = self.ee.ServiceAccountCredentials('',
+                                                                 key_file=kwargs.get('credentials',
+                                                                                     CREDENTIALS))
             self.ee.Initialize(self.credentials)
         else:
-            self.ee.Authenticate()
-            self.ee.Initialize()
+            if not self.request or not self.credentials:
+                self.ee.Authenticate()
+                self.ee.Initialize()
             self.credentials = self.ee.data.get_persistent_credentials()
             self.request = import_module('google.auth.transport.requests').Request()
             self._refresh_credentials()
+        self._finalizer = weakref.finalize(self, cleanup, 'EEDA_BEARER', self.request)
         super().__init__(*args, **kwargs)
 
-    def __del__(self):
-        # Manually clean up sensitive info just in case
-        if os.environ.get('EEDA_BEARER'):
-            os.environ.pop('EEDA_BEARER')
-        if self.request:
-            self.request.session.close()
-        self.request = None
-        self.credentials = None
+    def remove(self):
+        ''' Finalizer to cleanup sensitive data. '''
+        self._finalizer()
+
+    @property
+    def removed(self):
+        ''' Property to check if object has been finalized. '''
+        return not self._finalizer.alive
+
 
     def load(self, *args, **kwargs):
         ''' An overloaded load function from Datacube.
@@ -349,3 +357,10 @@ def get_datasets(**kwargs):
     for document in generate_documents(kwargs['asset'], kwargs['images'], kwargs['product']):
         yield datacube.model.Dataset(kwargs['product'], document,
                                      uris=f'EEDAI://{kwargs["asset"]}')
+
+def cleanup(key, request):
+    ''' Method to cleanup any leftover sensitive data. '''
+    if os.environ.get(key):
+        os.environ.pop(key)
+    if request:
+        request.session.close()
