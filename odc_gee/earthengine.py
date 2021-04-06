@@ -14,7 +14,18 @@ HOME = os.getenv('HOME')
 CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS',
                         f'{HOME}/.config/odc-gee/credentials.json')
 
-class Datacube(datacube.Datacube):
+class Singleton(type):
+    ''' A Singleton metaclass. '''
+    __instance = None
+    def __init__(cls, *args, **kwargs):
+        super(Singleton, cls).__init__(*args, **kwargs)
+
+    def __call__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls.__instance
+
+class Datacube(datacube.Datacube, metaclass=Singleton):
     ''' Extended Datacube object for use with Google Earth Engine.
 
     Attributes:
@@ -22,12 +33,6 @@ class Datacube(datacube.Datacube):
         request: The Request object used in the session.
         ee: A reference to the ee (earthengine-api) module.
     '''
-    __instance = None
-    def __new__(cls, *args, **kwargs):
-        if cls.__instance is None:
-            cls.__instance = object.__new__(cls, *args, **kwargs)
-        return cls.__instance
-
     def __init__(self, *args, **kwargs):
         self.ee = import_module('ee')
         if not hasattr(self, 'request') or not hasattr(self, 'credentials'):
@@ -40,6 +45,7 @@ class Datacube(datacube.Datacube):
                                                                  key_file=kwargs.get('credentials',
                                                                                      CREDENTIALS))
             self.ee.Initialize(self.credentials)
+            kwargs.pop('credentials')
         else:
             if not self.request or not self.credentials:
                 self.ee.Authenticate()

@@ -3,8 +3,6 @@
 from collections import namedtuple
 import uuid
 
-import numpy as np
-
 from datacube.utils.geometry import Geometry
 from datacube.utils.geometry.tools import Affine
 
@@ -42,7 +40,7 @@ def parse(asset, image_data, product):
     spatial_reference = image_data['bands'][0]['grid']\
                         .get('crsCode', image_data['bands'][0]['grid'].get('crsWkt'))
     # Handle special GEE Infinity GeoJSON responses
-    image_data['geometry']['coordinates'][0] = [[np.float32(x), np.float32(y)]
+    image_data['geometry']['coordinates'][0] = [[float(x), float(y)]
                                                 for (x, y) \
                                                 in image_data['geometry']['coordinates'][0]]
     geometry = Geometry(image_data['geometry'])
