@@ -37,17 +37,14 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
         self.ee = import_module('ee')
         if not hasattr(self, 'request') or not hasattr(self, 'credentials'):
             self.request = None
-            self.credentials = None
-        if kwargs.get('credentials') or Path(CREDENTIALS).exists():
-            os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=kwargs.get('credentials',
-                                                                        CREDENTIALS))
+            self.credentials = kwargs.get('credentials', CREDENTIALS)
+        if isinstance(self.credentials, str) and Path(self.credentials).exists():
+            os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=self.credentials)
             self.credentials = self.ee.ServiceAccountCredentials('',
-                                                                 key_file=kwargs.get('credentials',
-                                                                                     CREDENTIALS))
+                                                                 key_file=self.credentials)
             self.ee.Initialize(self.credentials)
-            kwargs.pop('credentials')
         else:
-            if not self.request or not self.credentials:
+            if not self.request:
                 self.ee.Authenticate()
                 self.ee.Initialize()
             self.credentials = self.ee.data.get_persistent_credentials()
