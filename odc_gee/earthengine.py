@@ -8,6 +8,7 @@ import weakref
 from rasterio.errors import RasterioIOError
 import numpy
 
+from datacube.api.query import Query
 import datacube
 
 HOME = os.getenv('HOME')
@@ -76,19 +77,23 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
         Returns: The queried xarray.Dataset.
         '''
         try:
-            if kwargs.get('product') and not isinstance(kwargs.get('product'),
-                                                        datacube.model.DatasetType):
-                kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
-                kwargs.update(asset=kwargs.get('product').metadata_doc\
-                                    .get('properties').get('gee:asset'))
+            query = Query(**kwargs)
+            if query.product and not isinstance(query.product,
+                                                datacube.model.DatasetType):
+                query.product = self.index.products.get_by_name(query.product)
+                query.asset = query.product.metadata_doc.get('properties').get('gee:asset')
             elif kwargs.get('asset'):
-                kwargs.update(product=self.generate_product(**kwargs))
-
-            if kwargs.get('asset'):
-                parameters, kwargs = self.build_parameters(**kwargs)
-                images = self.get_images(parameters)
-                kwargs.update(datasets=get_datasets(images=images, **kwargs))
+                query.product = self.generate_product(**kwargs)
                 kwargs.pop('asset')
+
+            if hasattr(query, 'asset'):
+                if kwargs.get('query'):
+                    kwargs.pop('query')
+                parameters = self.build_parameters(query)
+                images = self.get_images(parameters)
+                kwargs.update(datasets=get_datasets(asset=query.asset,
+                                                    images=images,
+                                                    product=query.product))
                 datasets = super().load(*args, **kwargs)
             else:
                 return super().load(*args, **kwargs)
@@ -138,67 +143,31 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
         except Exception as error:
             raise error
 
-    def build_parameters(self, query=None, **kwargs):
-        ''' Build query parameters for GEE the REST API.
+    def build_parameters(self, query):
+        ''' Build query parameters for GEE REST API from ODC queries.
 
         Args:
-            asset (str): The asset ID of the image or image collection.
-            latitude (tuple/list): Optional; the latitude extents to search.
-            longitude (tuple/list): Optional; the longitude extents to search.
-            time (str/tuple/list): Optional; the time extent to search.
-            query (dict): Optional; extra parameters to add to the query.
+            query (datacube.api.query.Query): An ODC query object with additional GEE attributes.
 
         Returns:
-            If query is supplied, a tuple of a dict of built parameter and the original kwargs dict
-            with the query removed. Otherwise, returns just the built paramseters.
+            A formatted dictionary for a GEE query.
         '''
-        asset = kwargs['asset']
-        parameters = dict(parent=self.ee.data.convert_asset_id_to_asset_name(asset))
-        if (kwargs.get('latitude') is not None and any(kwargs.get('latitude')))\
-                and (kwargs.get('longitude') is not None and any(kwargs.get('longitude'))):
-            parameters.update(
-                region=self.ee.Geometry.Rectangle(coords=(kwargs['longitude'][0],
-                                                          kwargs['latitude'][0],
-                                                          kwargs['longitude'][-1],
-                                                          kwargs['latitude'][-1])).getInfo())
-        elif (kwargs.get('lat') is not None and any(kwargs.get('lat')))\
-                and (kwargs.get('lon') is not None and any(kwargs.get('lon'))):
-            parameters.update(
-                region=self.ee.Geometry.Rectangle(coords=(kwargs['lon'][0],
-                                                          kwargs['lat'][0],
-                                                          kwargs['lon'][-1],
-                                                          kwargs['lat'][-1])).getInfo())
-        # This solution may need work to fix loading coord systems other than EPSG:4326
-        elif (kwargs.get('y') is not None and any(kwargs.get('y')))\
-                and (kwargs.get('x') is not None and any(kwargs.get('x'))):
-            if kwargs.get('product') and isinstance(kwargs.get('product'),
-                                                    datacube.model.DatasetType):
-                proj = str(kwargs['product'].grid_spec.crs)
-            elif kwargs.get('crs'):
-                proj = kwargs.get('crs')
-            else:
-                proj = 'EPSG:4326'
-            parameters.update(
-                region=self.ee.Geometry.Rectangle(coords=(kwargs['x'][0],
-                                                          kwargs['y'][0],
-                                                          kwargs['x'][-1],
-                                                          kwargs['y'][-1]),
-                                                  proj=proj).getInfo())
-        if kwargs.get('time'):
-            if isinstance(kwargs['time'], (list, tuple, numpy.ndarray)):
-                parameters.update(startTime=numpy.datetime64(kwargs['time'][0], 's')\
-                                            .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-                parameters.update(endTime=numpy.datetime64(kwargs['time'][-1], 's')\
-                                          .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-            else:
-                parameters.update(startTime=numpy.datetime64(kwargs['time'], 's')\
-                                            .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-                parameters.update(endTime=(numpy.datetime64(kwargs['time'], 's')+1)\
-                                          .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-        if query:
-            parameters.update(**query)
-            return parameters, kwargs
-        return parameters, kwargs
+        parameters = dict(parent=self.ee.data.convert_asset_id_to_asset_name(query.asset))
+        if query.geopolygon:
+            if query.geopolygon.type == 'Polygon':
+                parameters.update(
+                    region=self.ee.Geometry.Rectangle(
+                        coords=list(query.geopolygon.boundingbox)).getInfo())
+            elif query.geopolygon.type == 'Point':
+                parameters.update(
+                    region=self.ee.Geometry.Point(
+                        coords=list(query.geopolygon.boundingbox)[0:2]).getInfo())
+        if 'time' in query.search:
+            parameters.update(startTime=query.search['time'].begin.strftime('%Y-%m-%dT%H:%M:%SZ'))
+            parameters.update(endTime=query.search['time'].end.strftime('%Y-%m-%dT%H:%M:%SZ'))
+        if 'query' in query.search:
+            parameters.update(**query.search['query'])
+        return parameters
 
     def generate_product(self, asset=None, name=None,
                          resolution=None, output_crs=None, **kwargs):
@@ -347,7 +316,7 @@ def to_snake(string):
     return sub(r'[, -]+', '_',
                split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
 
-def get_datasets(**kwargs):
+def get_datasets(asset=None, images=None, product=None):
     ''' Gets datasets for a Datacube load.
 
     Args:
@@ -357,9 +326,9 @@ def get_datasets(**kwargs):
 
     Returns: A generated list of datacube.model.Dataset objects.
     '''
-    for document in generate_documents(kwargs['asset'], kwargs['images'], kwargs['product']):
-        yield datacube.model.Dataset(kwargs['product'], document,
-                                     uris=f'EEDAI://{kwargs["asset"]}')
+    for document in generate_documents(asset, images, product):
+        yield datacube.model.Dataset(product, document,
+                                     uris=f'EEDAI://{asset}')
 
 def cleanup(key, request):
     ''' Method to cleanup any leftover sensitive data. '''
