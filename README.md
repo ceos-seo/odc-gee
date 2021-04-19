@@ -4,7 +4,7 @@
 This package provides various tools for indexing [Google Earth Engine
 (GEE)](https://earthengine.google.com/)
 images into an [Open Data Cube
-(ODC)](https://datacube-core.readthedocs.io/en/latest/index.html) index.  It
+(ODC)](https://datacube-core.readthedocs.io/en/latest/index.html) index. It
 takes advantage of the [GEE REST
 API](https://developers.google.com/earth-engine/reference) and the [GEE STAC
 API](https://earthengine-stac.storage.googleapis.com/).
@@ -68,12 +68,13 @@ result. You can then add the resulting product definition to the ODC database:
 available options.
 
 >**Note:** The following option is deprecated in favor of "real-time" indexing
->but is kept here for posterity.
+>but is kept here for posterity, and it is still useful in environments that
+>need to use standard ODC instead of a wrapper.
 
 The indexing of datasets to a local ODC index can be done using the `index_gee`
-command.  The script will format datasets to conform to a product definition if
+command. The script will format datasets to conform to a product definition if
 the supplied product parameter is a product name of a definition in the ODC
-database.  Otherwise, the script will create a generic product definition and
+database. Otherwise, the script will create a generic product definition and
 dataset document based on GEE metadata. Example usage: `index_gee --product
 ls8_google`. Use `index_gee --help` to see all available options.
 

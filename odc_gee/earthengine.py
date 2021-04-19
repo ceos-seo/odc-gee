@@ -3,17 +3,30 @@
 from importlib import import_module
 from pathlib import Path
 import os
+import weakref
 
 from rasterio.errors import RasterioIOError
 import numpy
 
+from datacube.api.query import Query
 import datacube
 
 HOME = os.getenv('HOME')
 CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS',
                         f'{HOME}/.config/odc-gee/credentials.json')
 
-class Datacube(datacube.Datacube):
+class Singleton(type):
+    ''' A Singleton metaclass. '''
+    __instance = None
+    def __init__(cls, *args, **kwargs):
+        super(Singleton, cls).__init__(*args, **kwargs)
+
+    def __call__(cls, *args, **kwargs):
+        if cls.__instance is None:
+            cls.__instance = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls.__instance
+
+class Datacube(datacube.Datacube, metaclass=Singleton):
     ''' Extended Datacube object for use with Google Earth Engine.
 
     Attributes:
@@ -21,36 +34,35 @@ class Datacube(datacube.Datacube):
         request: The Request object used in the session.
         ee: A reference to the ee (earthengine-api) module.
     '''
-    __instance = None
-    def __new__(cls, *args, **kwargs):
-        if cls.__instance is None:
-            cls.__instance = object.__new__(cls, *args, **kwargs)
-        return cls.__instance
-
-    def __init__(self, *args, credentials=CREDENTIALS, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.ee = import_module('ee')
-        self.request = None
-        self.credentials = None
-        if Path(credentials).exists():
-            os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=credentials)
-            self.credentials = self.ee.ServiceAccountCredentials('', key_file=credentials)
+        if not hasattr(self, 'request') or not hasattr(self, 'credentials'):
+            self.request = None
+            self.credentials = kwargs.pop('credentials', CREDENTIALS)
+        if isinstance(self.credentials, str) and Path(self.credentials).is_file():
+            os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=self.credentials)
+            self.credentials = self.ee.ServiceAccountCredentials('',
+                                                                 key_file=self.credentials)
             self.ee.Initialize(self.credentials)
         else:
-            self.ee.Authenticate()
-            self.ee.Initialize()
+            if not self.request:
+                self.ee.Authenticate()
+                self.ee.Initialize()
             self.credentials = self.ee.data.get_persistent_credentials()
             self.request = import_module('google.auth.transport.requests').Request()
             self._refresh_credentials()
+        self._finalizer = weakref.finalize(self, cleanup, 'EEDA_BEARER', self.request)
         super().__init__(*args, **kwargs)
 
-    def __del__(self):
-        # Manually clean up sensitive info just in case
-        if os.environ.get('EEDA_BEARER'):
-            os.environ.pop('EEDA_BEARER')
-        if self.request:
-            self.request.session.close()
-        self.request = None
-        self.credentials = None
+    def remove(self):
+        ''' Finalizer to cleanup sensitive data. '''
+        self._finalizer()
+
+    @property
+    def removed(self):
+        ''' Property to check if object has been finalized. '''
+        return not self._finalizer.alive
+
 
     def load(self, *args, **kwargs):
         ''' An overloaded load function from Datacube.
@@ -65,19 +77,23 @@ class Datacube(datacube.Datacube):
         Returns: The queried xarray.Dataset.
         '''
         try:
-            if kwargs.get('product') and not isinstance(kwargs.get('product'),
-                                                        datacube.model.DatasetType):
-                kwargs.update(product=self.index.products.get_by_name(kwargs['product']))
-                kwargs.update(asset=kwargs.get('product').metadata_doc\
-                                    .get('properties').get('gee:asset'))
+            query = Query(**kwargs)
+            if query.product and not isinstance(query.product,
+                                                datacube.model.DatasetType):
+                query.product = self.index.products.get_by_name(query.product)
+                query.asset = query.product.metadata_doc.get('properties').get('gee:asset')
             elif kwargs.get('asset'):
-                kwargs.update(product=self.generate_product(**kwargs))
-
-            if kwargs.get('asset'):
-                parameters, kwargs = self.build_parameters(**kwargs)
-                images = self.get_images(parameters)
-                kwargs.update(datasets=get_datasets(images=images, **kwargs))
+                query.product = self.generate_product(**kwargs)
                 kwargs.pop('asset')
+
+            if hasattr(query, 'asset'):
+                if kwargs.get('query'):
+                    kwargs.pop('query')
+                parameters = self.build_parameters(query)
+                images = self.get_images(parameters)
+                kwargs.update(datasets=get_datasets(asset=query.asset,
+                                                    images=images,
+                                                    product=query.product))
                 datasets = super().load(*args, **kwargs)
             else:
                 return super().load(*args, **kwargs)
@@ -127,67 +143,31 @@ class Datacube(datacube.Datacube):
         except Exception as error:
             raise error
 
-    def build_parameters(self, query=None, **kwargs):
-        ''' Build query parameters for GEE the REST API.
+    def build_parameters(self, query):
+        ''' Build query parameters for GEE REST API from ODC queries.
 
         Args:
-            asset (str): The asset ID of the image or image collection.
-            latitude (tuple/list): Optional; the latitude extents to search.
-            longitude (tuple/list): Optional; the longitude extents to search.
-            time (str/tuple/list): Optional; the time extent to search.
-            query (dict): Optional; extra parameters to add to the query.
+            query (datacube.api.query.Query): An ODC query object with additional GEE attributes.
 
         Returns:
-            If query is supplied, a tuple of a dict of built parameter and the original kwargs dict
-            with the query removed. Otherwise, returns just the built paramseters.
+            A formatted dictionary for a GEE query.
         '''
-        asset = kwargs['asset']
-        parameters = dict(parent=self.ee.data.convert_asset_id_to_asset_name(asset))
-        if (kwargs.get('latitude') is not None and any(kwargs.get('latitude')))\
-                and (kwargs.get('longitude') is not None and any(kwargs.get('longitude'))):
-            parameters.update(
-                region=self.ee.Geometry.Rectangle(coords=(kwargs['longitude'][0],
-                                                          kwargs['latitude'][0],
-                                                          kwargs['longitude'][-1],
-                                                          kwargs['latitude'][-1])).getInfo())
-        elif (kwargs.get('lat') is not None and any(kwargs.get('lat')))\
-                and (kwargs.get('lon') is not None and any(kwargs.get('lon'))):
-            parameters.update(
-                region=self.ee.Geometry.Rectangle(coords=(kwargs['lon'][0],
-                                                          kwargs['lat'][0],
-                                                          kwargs['lon'][-1],
-                                                          kwargs['lat'][-1])).getInfo())
-        # This solution may need work to fix loading coord systems other than EPSG:4326
-        elif (kwargs.get('y') is not None and any(kwargs.get('y')))\
-                and (kwargs.get('x') is not None and any(kwargs.get('x'))):
-            if kwargs.get('product') and isinstance(kwargs.get('product'),
-                                                    datacube.model.DatasetType):
-                proj = str(kwargs['product'].grid_spec.crs)
-            elif kwargs.get('crs'):
-                proj = kwargs.get('crs')
-            else:
-                proj = 'EPSG:4326'
-            parameters.update(
-                region=self.ee.Geometry.Rectangle(coords=(kwargs['x'][0],
-                                                          kwargs['y'][0],
-                                                          kwargs['x'][-1],
-                                                          kwargs['y'][-1]),
-                                                  proj=proj).getInfo())
-        if kwargs.get('time'):
-            if isinstance(kwargs['time'], (list, tuple, numpy.ndarray)):
-                parameters.update(startTime=numpy.datetime64(kwargs['time'][0], 's')\
-                                            .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-                parameters.update(endTime=numpy.datetime64(kwargs['time'][-1], 's')\
-                                          .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-            else:
-                parameters.update(startTime=numpy.datetime64(kwargs['time'], 's')\
-                                            .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-                parameters.update(endTime=(numpy.datetime64(kwargs['time'], 's')+1)\
-                                          .item().strftime('%Y-%m-%dT%H:%M:%SZ'))
-        if query:
-            parameters.update(**query)
-            return parameters, kwargs
-        return parameters, kwargs
+        parameters = dict(parent=self.ee.data.convert_asset_id_to_asset_name(query.asset))
+        if query.geopolygon:
+            if query.geopolygon.type == 'Polygon':
+                parameters.update(
+                    region=self.ee.Geometry.Rectangle(
+                        coords=list(query.geopolygon.boundingbox)).getInfo())
+            elif query.geopolygon.type == 'Point':
+                parameters.update(
+                    region=self.ee.Geometry.Point(
+                        coords=list(query.geopolygon.boundingbox)[0:2]).getInfo())
+        if 'time' in query.search:
+            parameters.update(startTime=query.search['time'].begin.strftime('%Y-%m-%dT%H:%M:%SZ'))
+            parameters.update(endTime=query.search['time'].end.strftime('%Y-%m-%dT%H:%M:%SZ'))
+        if 'query' in query.search:
+            parameters.update(**query.search['query'])
+        return parameters
 
     def generate_product(self, asset=None, name=None,
                          resolution=None, output_crs=None, **kwargs):
@@ -336,7 +316,7 @@ def to_snake(string):
     return sub(r'[, -]+', '_',
                split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
 
-def get_datasets(**kwargs):
+def get_datasets(asset=None, images=None, product=None):
     ''' Gets datasets for a Datacube load.
 
     Args:
@@ -346,6 +326,13 @@ def get_datasets(**kwargs):
 
     Returns: A generated list of datacube.model.Dataset objects.
     '''
-    for document in generate_documents(kwargs['asset'], kwargs['images'], kwargs['product']):
-        yield datacube.model.Dataset(kwargs['product'], document,
-                                     uris=f'EEDAI://{kwargs["asset"]}')
+    for document in generate_documents(asset, images, product):
+        yield datacube.model.Dataset(product, document,
+                                     uris=f'EEDAI://{asset}')
+
+def cleanup(key, request):
+    ''' Method to cleanup any leftover sensitive data. '''
+    if os.environ.get(key):
+        os.environ.pop(key)
+    if request:
+        request.session.close()
