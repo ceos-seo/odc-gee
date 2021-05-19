@@ -7,6 +7,7 @@ import traceback
 
 import click
 
+from datacube.api.query import Query
 from odc_gee.indexing import Indexer
 from odc_gee.logger import Logger
 
@@ -71,7 +72,10 @@ def index_gee(**kwargs):
                           if isinstance(kwargs.get('longitude'), str)\
                           else kwargs.get('longitude'))
         kwargs.update(time=indexer.parse_time_parameter(**kwargs))
-        parameters, kwargs = indexer.datacube.build_parameters(**kwargs)
+        query = Query(**kwargs)
+        query.asset = kwargs.get('asset')
+        query.product = kwargs.get('product')
+        parameters = indexer.datacube.build_parameters(query)
 
 
         if kwargs['verbosity'] >= 2:
