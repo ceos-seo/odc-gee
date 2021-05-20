@@ -93,11 +93,8 @@ class Indexer:
     Attrs:
         datacube (odc_gee.earthengine.Datacube): An ODC wrapper for GEE specific uses.
     '''
-    def __init__(self, app=None):
-        if app:
-            self.datacube = earthengine.Datacube(app=app)
-        else:
-            self.datacube = earthengine.Datacube(app='GEE_Indexer')
+    def __init__(self, app='GEE_Indexer', **kwargs):
+        self.datacube = earthengine.Datacube(app=app, **kwargs)
 
     def __call__(self, *args, update=False, response=None, image_sum=0):
         """ Performs the parsing and indexing.
