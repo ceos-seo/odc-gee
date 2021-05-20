@@ -17,6 +17,7 @@ def tests(ctx):
               help='The directory to discover tests inside [default: tests]')
 @click.option('--top_level_dir', '-t', required=False, type=click.STRING, default='.',
               help='The root directory of the project being tested [default: .]')
+@click.option('-v', '--verbose', count=True, default=0)
 def run(**kwargs):
     start_dir = kwargs['start_dir']
     top_level_dir = kwargs['top_level_dir']
@@ -27,7 +28,7 @@ def run(**kwargs):
         suite.addTests(loader.discover(start_dir, top_level_dir=top_level_dir))
         return suite
 
-    runner = unittest.TextTestRunner()
+    runner = unittest.TextTestRunner(verbosity=kwargs['verbose']+1)
     runner.run(suite())
 
 @tests.command()
