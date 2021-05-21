@@ -156,9 +156,8 @@ class Indexer:
         '''
         asset_info = self.datacube.ee.data.getAsset(kwargs['asset'])
         if kwargs.get('time'):
-            start_time, end_time = (numpy.datetime64(time, 'ms').item().isoformat()\
-                                    for time in sub(r'[\(\)\[\] ]', '', kwargs['time']).split(','))\
-                                   if isinstance(kwargs['time'], str) else kwargs.get('time')
+            time = (sub(r'[\(\)\[\] ]', '', kwargs['time']).split(','))\
+                   if isinstance(kwargs['time'], str) else kwargs.get('time')
         else:
             if kwargs['rolling_update']:
                 start_time = numpy.max(list(self.datacube.index.datasets.search_returning(
@@ -168,4 +167,5 @@ class Indexer:
             else:
                 start_time, end_time = [numpy.datetime64(date, 'ms').item().isoformat()\
                                         for date in asset_info['properties']['date_range']]
-        return (start_time, end_time)
+            time = (start_time, end_time)
+        return time

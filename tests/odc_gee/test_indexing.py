@@ -27,9 +27,16 @@ class IndexerTestCase(unittest.TestCase):
                          product,
                          'Could not find product in database')
 
-    # TODO: finish this test
     def test_parse_time(self):
-        pass
+        indexer = self.test_init()
+        asset = 'LANDSAT/LC08/C01/T1_SR'
+        times = [('2020', ['2020']),
+                 ('(2020, 2021)', ['2020', '2021']),
+                 ('(2020-01, 2020-12-31)', ['2020-01', '2020-12-31']),
+                 ('(2020-01-01, 2020-02-01)', ['2020-01-01', '2020-02-01'])]
+        for time, expected in times:
+            parsed_time = indexer.parse_time_parameter(asset=asset, time=time)
+            self.assertEqual(parsed_time, expected)
 
 if __name__ == '__main__':
     unittest.main()
