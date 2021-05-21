@@ -84,7 +84,7 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                 query.asset = query.product.metadata_doc.get('properties').get('gee:asset')
             elif kwargs.get('asset'):
                 query.product = self.generate_product(**kwargs)
-                kwargs.pop('asset')
+                query.asset = kwargs.pop('asset')
 
             if hasattr(query, 'asset'):
                 if kwargs.get('query'):
