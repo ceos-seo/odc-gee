@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 from pathlib import Path
 import subprocess
+import sys
 import unittest
+
 import click
 
 from datacube import Datacube
@@ -37,15 +39,19 @@ def run(**kwargs):
         return suite
 
     runner = unittest.TextTestRunner(verbosity=kwargs['verbose']+1)
-    runner.run(suite())
+    result = runner.run(suite())
+    if result.wasSuccessful():
+        sys.exit(0)
+    else:
+        sys.exit(1)
 
 @tests.command()
 def initdb():
     try:
-        createdb = ["createdb", "dctest"]
-        odc_init = ["datacube", "-C", DATACUBE_CONFIG, "system", "init"]
-        subprocess.check_output(createdb)
-        subprocess.check_output(odc_init)
+        cmd1 = ["createdb", "dctest"]
+        cmd2 = ["datacube", "-C", DATACUBE_CONFIG, "system", "init"]
+        subprocess.check_output(cmd1)
+        subprocess.check_output(cmd2)
     except subprocess.CalledProcessError:
         datacube = Datacube(config=DATACUBE_CONFIG)
         if datacube is not None:
@@ -56,8 +62,8 @@ def initdb():
 @tests.command()
 def dropdb():
     try:
-        dropdb = ["dropdb", "dctest"]
-        subprocess.check_output(dropdb)
+        cmd = ["dropdb", "dctest"]
+        subprocess.check_output(cmd)
     except subprocess.CalledProcessError as error:
         try:
             datacube = Datacube(config=DATACUBE_CONFIG)
