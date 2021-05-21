@@ -16,6 +16,9 @@ class IndexGEETestCase(unittest.TestCase):
         product = indexer.datacube.index.products.get_by_name('ls8_test')
         if product is None:
             self.skipTest('No product available to index')
+        datasets = indexer.datacube.find_datasets(product='ls8_test')
+        if datasets:
+            self.skipTest('Indexed datasets already exist in database')
 
     def test_index_gee(self):
         product = 'ls8_test'
@@ -24,7 +27,7 @@ class IndexGEETestCase(unittest.TestCase):
         time = '2020-01'
         cmd = ["index_gee", "--product", product, "--latitude", str(latitude),
                "--longitude", str(longitude), "--time", time, "--config", DATACUBE_CONFIG,
-               "--no_confirm"]
+               "--no_confirm", "-u"]
         subprocess.check_output(cmd)
         datacube = Datacube(config=DATACUBE_CONFIG)
         datasets = datacube.find_datasets(product=product)

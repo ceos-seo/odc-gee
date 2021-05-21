@@ -4,6 +4,8 @@ import subprocess
 import unittest
 import click
 
+from datacube import Datacube
+
 DATACUBE_CONFIG = f'{Path(__file__).parent.absolute()}/tests/datacube.conf'
 
 @click.group(invoke_without_command=True)
@@ -19,6 +21,12 @@ def tests(ctx):
               help='The root directory of the project being tested [default: .]')
 @click.option('-v', '--verbose', count=True, default=0)
 def run(**kwargs):
+    try:
+        datacube = Datacube(config=DATACUBE_CONFIG)
+    except:
+        raise RuntimeError('Could not connect to the test database.\n'\
+                           'Make sure to run: python tests.py initdb')
+
     start_dir = kwargs['start_dir']
     top_level_dir = kwargs['top_level_dir']
 
@@ -33,15 +41,32 @@ def run(**kwargs):
 
 @tests.command()
 def initdb():
-    createdb = ["createdb", "dctest"]
-    odc_init = ["datacube", "-C", DATACUBE_CONFIG, "system", "init"]
-    subprocess.check_output(createdb)
-    subprocess.check_output(odc_init)
+    try:
+        createdb = ["createdb", "dctest"]
+        odc_init = ["datacube", "-C", DATACUBE_CONFIG, "system", "init"]
+        subprocess.check_output(createdb)
+        subprocess.check_output(odc_init)
+    except subprocess.CalledProcessError:
+        datacube = Datacube(config=DATACUBE_CONFIG)
+        if datacube is not None:
+            print('Database already initialized')
+    except Exception as error:
+        raise error
 
 @tests.command()
 def dropdb():
-    dropdb = ["dropdb", "dctest"]
-    subprocess.check_output(dropdb)
+    try:
+        dropdb = ["dropdb", "dctest"]
+        subprocess.check_output(dropdb)
+    except subprocess.CalledProcessError as error:
+        try:
+            datacube = Datacube(config=DATACUBE_CONFIG)
+            if datacube is not None:
+                raise error
+        except Exception:
+            print('Already dropped the database')
+    except Exception as error:
+        raise error
 
 if __name__ == '__main__':
     tests()

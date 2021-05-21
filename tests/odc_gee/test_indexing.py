@@ -16,6 +16,9 @@ class IndexerTestCase(unittest.TestCase):
 
     def test_product_generation(self):
         indexer = self.test_init()
+        # Possible check to skip tests if product already exists in DB
+        #if indexer.datacube.index.products.get_by_name('ls8_test'):
+        #    self.skipTest('Product already exists in database')
         params = dict(asset='LANDSAT/LC08/C01/T1_SR',
                       product='ls8_test',
                       resolution=(-2.69493352e-4, 2.69493352e-4),
