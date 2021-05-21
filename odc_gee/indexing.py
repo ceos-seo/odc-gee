@@ -93,11 +93,8 @@ class Indexer:
     Attrs:
         datacube (odc_gee.earthengine.Datacube): An ODC wrapper for GEE specific uses.
     '''
-    def __init__(self, app=None):
-        if app:
-            self.datacube = earthengine.Datacube(app=app)
-        else:
-            self.datacube = earthengine.Datacube(app='GEE_Indexer')
+    def __init__(self, app='GEE_Indexer', **kwargs):
+        self.datacube = earthengine.Datacube(app=app, **kwargs)
 
     def __call__(self, *args, update=False, response=None, image_sum=0):
         """ Performs the parsing and indexing.
@@ -159,9 +156,8 @@ class Indexer:
         '''
         asset_info = self.datacube.ee.data.getAsset(kwargs['asset'])
         if kwargs.get('time'):
-            start_time, end_time = (numpy.datetime64(time, 'ms').item().isoformat()\
-                                    for time in sub(r'[\(\)\[\] ]', '', kwargs['time']).split(','))\
-                                   if isinstance(kwargs['time'], str) else kwargs.get('time')
+            time = (sub(r'[\(\)\[\] ]', '', kwargs['time']).split(','))\
+                   if isinstance(kwargs['time'], str) else kwargs.get('time')
         else:
             if kwargs['rolling_update']:
                 start_time = numpy.max(list(self.datacube.index.datasets.search_returning(
@@ -171,4 +167,5 @@ class Indexer:
             else:
                 start_time, end_time = [numpy.datetime64(date, 'ms').item().isoformat()\
                                         for date in asset_info['properties']['date_range']]
-        return (start_time, end_time)
+            time = (start_time, end_time)
+        return time

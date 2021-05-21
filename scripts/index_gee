@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # pylint: disable=import-error,bare-except
 """Indexes GEE Products."""
+from re import sub
 import json
 import os
 import traceback
@@ -42,13 +43,15 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.js
               help="The level of verbosity to use [0-5]")
 @click.option("--no_confirm", is_flag=True, flag_value=True,
               help="Do not prompt for latitude/longitude confirmation.")
+@click.option("--config", "-C", type=click.STRING, required=False, default=None,
+              help="An ODC configuration file path.")
 def index_gee(**kwargs):
     """This script indexes GEE products."""
     logger = Logger(name="index_gee", base_dir=f'{HOME}/.local/share/odc-gee',
                     verbosity=kwargs['verbosity'])
     try:
         logger.log(f'Indexing {kwargs.get("product")}.')
-        indexer = Indexer(app='GEE_Indexing_Script')
+        indexer = Indexer(app='GEE_Indexing_Script', config=kwargs['config'])
 
         if kwargs.get('product') and not kwargs.get('asset'):
             kwargs.update(asset=indexer.datacube.index.products.get_by_name(
@@ -65,10 +68,14 @@ def index_gee(**kwargs):
         if kwargs.get('no_confirm')\
         or click.confirm(f'Index {kwargs.get("product")} for latitude=({kwargs.get("latitude")})'\
                          + f', longitude=({kwargs.get("longitude")})?', abort=True):
-            kwargs.update(latitude=tuple(float(lat) for lat in kwargs.get('latitude').split(','))\
+            kwargs.update(latitude=tuple(float(lat)\
+                          for lat in sub(r'[\(\)\[\] ]', '',
+                                         kwargs.get('latitude')).split(','))\
                           if isinstance(kwargs.get('latitude'), str)\
                           else kwargs.get('latitude'))
-            kwargs.update(longitude=tuple(float(lon) for lon in kwargs.get('longitude').split(','))\
+            kwargs.update(longitude=tuple(float(lon)\
+                          for lon in sub(r'[\(\)\[\] ]', '',
+                                         kwargs.get('longitude')).split(','))\
                           if isinstance(kwargs.get('longitude'), str)\
                           else kwargs.get('longitude'))
         kwargs.update(time=indexer.parse_time_parameter(**kwargs))
