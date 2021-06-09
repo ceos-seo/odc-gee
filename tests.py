@@ -24,7 +24,7 @@ def tests(ctx):
 @click.option('-v', '--verbose', count=True, default=0)
 def run(**kwargs):
     try:
-        datacube = Datacube(config=DATACUBE_CONFIG)
+        Datacube(config=DATACUBE_CONFIG)
     except:
         raise RuntimeError('Could not connect to the test database.\n'\
                            'Make sure to run: python tests.py initdb')
@@ -52,10 +52,11 @@ def initdb():
         cmd2 = ["datacube", "-C", DATACUBE_CONFIG, "system", "init"]
         subprocess.check_output(cmd1)
         subprocess.check_output(cmd2)
+    # TODO: handle this better
     except subprocess.CalledProcessError:
         datacube = Datacube(config=DATACUBE_CONFIG)
         if datacube is not None:
-            print('Database already initialized')
+            print('Check your setup; database may already be initialized')
     except Exception as error:
         raise error
 
@@ -69,8 +70,9 @@ def dropdb():
             datacube = Datacube(config=DATACUBE_CONFIG)
             if datacube is not None:
                 raise error
+        # TODO: handle this better
         except Exception:
-            print('Already dropped the database')
+            print('Check your setup; database may have already been dropped')
     except Exception as error:
         raise error
 
