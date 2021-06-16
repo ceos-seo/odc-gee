@@ -84,7 +84,7 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                 query.asset = query.product.metadata_doc.get('properties').get('gee:asset')
             elif kwargs.get('asset'):
                 query.product = self.generate_product(**kwargs)
-                kwargs.pop('asset')
+                query.asset = kwargs.pop('asset')
 
             if hasattr(query, 'asset'):
                 if kwargs.get('query'):
@@ -189,20 +189,13 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
             measurements = kwargs['measurements']
         else:
             measurements = list(self.get_measurements(stac_metadata))
+        # TODO: find new method for platform and instrument property
         definition = dict(name=name,
                           description=metadata.get('properties').get('description'),
                           metadata_type='eo3',
                           metadata=dict(product=dict(name=name),
-                                        properties={'eo:platform':
-                                                    stac_metadata['properties']\
-                                                    .get('eo:platform',
-                                                         stac_metadata['properties']\
-                                                         .get('sar:platform')),
-                                                    'eo:instrument':
-                                                    stac_metadata['properties']\
-                                                    .get('eo:instrument',
-                                                         stac_metadata['properties']\
-                                                         .get('sar:instrument')),
+                                        properties={'eo:platform': None,
+                                                    'eo:instrument': None,
                                                     'gee:asset': asset}),
                           measurements=measurements)
         if resolution and output_crs:
@@ -226,8 +219,8 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                 band_types = self.ee.Image(stac_metadata['id']).bandTypes().getInfo()
         except Exception as error:
             raise error
-        for band in stac_metadata['properties'].get('eo:bands',
-                                                    stac_metadata['properties'].get('sar:bands')):
+        for band in stac_metadata['summaries'].get('eo:bands',
+                                                    stac_metadata['summaries'].get('sar:bands')):
             if 'empty' not in band['description'] and 'missing' not in band['description']:
                 try:
                     band_type = get_type(band_types[band['name']])
