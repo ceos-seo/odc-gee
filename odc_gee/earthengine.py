@@ -93,7 +93,8 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                 images = self.get_images(parameters)
                 kwargs.update(datasets=get_datasets(asset=query.asset,
                                                     images=images,
-                                                    product=query.product))
+                                                    product=query.product,
+                                                    limit=kwargs.get('limit')))
                 datasets = super().load(*args, **kwargs)
             else:
                 return super().load(*args, **kwargs)
@@ -309,7 +310,7 @@ def to_snake(string):
     return sub(r'[, -]+', '_',
                split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
 
-def get_datasets(asset=None, images=None, product=None):
+def get_datasets(asset=None, images=None, product=None, limit=None):
     ''' Gets datasets for a Datacube load.
 
     Args:
@@ -320,8 +321,12 @@ def get_datasets(asset=None, images=None, product=None):
     Returns: A generated list of datacube.model.Dataset objects.
     '''
     for document in generate_documents(asset, images, product):
-        yield datacube.model.Dataset(product, document,
-                                     uris=f'EEDAI://{asset}')
+        if limit != 0:
+            limit = limit - 1 if limit is not None else limit
+            yield datacube.model.Dataset(product, document,
+                                         uris=f'EEDAI://{asset}')
+        else:
+            break
 
 def cleanup(key, request):
     ''' Method to cleanup any leftover sensitive data. '''
