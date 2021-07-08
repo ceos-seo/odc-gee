@@ -323,8 +323,9 @@ def get_datasets(asset=None, images=None, product=None, limit=None):
     for document in generate_documents(asset, images, product):
         if limit != 0:
             limit = limit - 1 if limit is not None else limit
-            yield datacube.model.Dataset(product, document,
-                                         uris=f'EEDAI://{asset}')
+            if set(product.measurements.keys()) == set(document['measurements'].keys()):
+                yield datacube.model.Dataset(product, document,
+                                             uris=f'EEDAI://{asset}')
         else:
             break
 
