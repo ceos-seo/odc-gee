@@ -5,7 +5,6 @@ from pathlib import Path
 import os
 import weakref
 
-from rasterio.errors import RasterioIOError
 import numpy
 
 from datacube.api.query import Query
@@ -64,49 +63,16 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
         return not self._finalizer.alive
 
 
-    def load(self, *args, **kwargs):
+    def load(self, **kwargs):
         ''' An overloaded load function from Datacube.
 
         This load method allows for querying the Earth Engine REST API to search for datasets
         instead of using the standard database query of datacube.Datacube.
 
-        Args:
-            asset (str): The asset ID of the GEE collection or image being queried. If not included
-                then the load will default to normal Datacube operation.
-
         Returns: The queried xarray.Dataset.
         '''
-        try:
-            query = Query(**kwargs)
-            if query.product and not isinstance(query.product,
-                                                datacube.model.DatasetType):
-                query.product = self.index.products.get_by_name(query.product)
-                query.asset = query.product.metadata_doc.get('properties').get('gee:asset')
-            elif kwargs.get('asset'):
-                query.product = self.generate_product(**kwargs)
-                query.asset = kwargs.pop('asset')
-
-            if kwargs.get('datasets') is None and hasattr(query, 'asset'):
-                if kwargs.get('query'):
-                    kwargs.pop('query')
-                parameters = self.build_parameters(query)
-                images = self.get_images(parameters)
-                kwargs.update(datasets=get_datasets(asset=query.asset,
-                                                    images=images,
-                                                    product=query.product,
-                                                    limit=kwargs.get('limit')))
-                datasets = super().load(*args, **kwargs)
-            else:
-                return super().load(*args, **kwargs)
-        except RasterioIOError as error:
-            if error.args[0].find('"UNAUTHENTICATED"') != -1:
-                if self._refresh_credentials():
-                    return self.load(*args, **kwargs)
-                raise error
-        except Exception as error:
-            raise error
-        else:
-            return datasets
+        datasets = self.find_datasets(**kwargs)
+        return super().load(datasets=datasets, **kwargs)
 
     def _refresh_credentials(self):
         if self.request:
@@ -114,6 +80,39 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
             os.environ.update(EEDA_BEARER=self.credentials.token)
             return True
         return False
+
+    def find_datasets(self, limit=None, **search_terms):
+        ''' Finds datasets matching the search terms in local index or in GEE catalog.
+
+        Args:
+            limit (int): Optional; limit the maximum datasets returned
+            search_terms (dict): Search parameters to be passed to datacube.api.query.Query
+
+        Returns: A generated list of datacube.model.Dataset objects.
+        '''
+        query = Query(**search_terms)
+        if query.product and not isinstance(query.product,
+                                            datacube.model.DatasetType):
+            query.product = self.index.products.get_by_name(query.product)
+            query.asset = query.product.metadata_doc.get('properties').get('gee:asset')
+        elif search_terms.get('asset'):
+            query.product = self.generate_product(**search_terms)
+            query.asset = search_terms.pop('asset')
+
+        product_measurements = query.product.measurements.keys()
+        if hasattr(query, 'asset'):
+            images = self.get_images(self.build_parameters(query))
+            for document in generate_documents(query.asset, images, query.product):
+                if limit != 0:
+                    limit = limit - 1 if limit is not None else limit
+                    if set(product_measurements) == set(document['measurements'].keys()):
+                        yield datacube.model.Dataset(query.product, document,
+                                                     uris=f'EEDAI://{query.asset}')
+                else:
+                    break
+        else:
+            for dataset in super().find_datasets(limit=limit, search_terms=search_terms):
+                yield dataset
 
     def get_images(self, parameters):
         ''' Gets the images or image from the GEE REST API.
@@ -309,25 +308,6 @@ def to_snake(string):
     from re import sub, split
     return sub(r'[, -]+', '_',
                split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
-
-def get_datasets(asset=None, images=None, product=None, limit=None):
-    ''' Gets datasets for a Datacube load.
-
-    Args:
-        asset (str): The asset ID of the GEE asset.
-        images (list): A list of image data from the GEE API.
-        product (datacube.model.DatasetType): The product to associate dataset with.
-
-    Returns: A generated list of datacube.model.Dataset objects.
-    '''
-    for document in generate_documents(asset, images, product):
-        if limit != 0:
-            limit = limit - 1 if limit is not None else limit
-            if set(product.measurements.keys()) == set(document['measurements'].keys()):
-                yield datacube.model.Dataset(product, document,
-                                             uris=f'EEDAI://{asset}')
-        else:
-            break
 
 def cleanup(key, request):
     ''' Method to cleanup any leftover sensitive data. '''
