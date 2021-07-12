@@ -86,7 +86,7 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                 query.product = self.generate_product(**kwargs)
                 query.asset = kwargs.pop('asset')
 
-            if hasattr(query, 'asset'):
+            if kwargs.get('datasets') is None and hasattr(query, 'asset'):
                 if kwargs.get('query'):
                     kwargs.pop('query')
                 parameters = self.build_parameters(query)
@@ -221,7 +221,7 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
         except Exception as error:
             raise error
         for band in stac_metadata['summaries'].get('eo:bands',
-                                                    stac_metadata['summaries'].get('sar:bands')):
+                                                   stac_metadata['summaries'].get('sar:bands')):
             if 'empty' not in band['description'] and 'missing' not in band['description']:
                 try:
                     band_type = get_type(band_types[band['name']])
