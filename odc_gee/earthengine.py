@@ -1,14 +1,20 @@
 # pylint: disable=import-error,invalid-name,protected-access
 """ Module for Google Earth Engine tools. """
+from datetime import datetime
 from importlib import import_module
 from pathlib import Path
+from time import sleep
 import os
+import threading
 import weakref
 
 import numpy
 
 from datacube.api.query import Query
 import datacube
+
+# Number of days OAuth will keep token fresh
+AUTH_LIMIT = 3
 
 HOME = os.getenv('HOME')
 CREDENTIALS = os.getenv('GOOGLE_APPLICATION_CREDENTIALS',
@@ -35,8 +41,8 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
     '''
     def __init__(self, *args, **kwargs):
         self.ee = import_module('ee')
-        if not hasattr(self, 'request') or not hasattr(self, 'credentials'):
-            self.request = None
+        self.request = import_module('google.auth.transport.requests').Request()
+        if not hasattr(self, 'credentials'):
             self.credentials = kwargs.pop('credentials', CREDENTIALS)
         if isinstance(self.credentials, str) and Path(self.credentials).is_file():
             os.environ.update(GOOGLE_APPLICATION_CREDENTIALS=self.credentials)
@@ -44,13 +50,14 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                                                                  key_file=self.credentials)
             self.ee.Initialize(self.credentials)
         else:
-            if not self.request:
-                self.ee.Authenticate()
-                self.ee.Initialize()
+            self.ee.Authenticate()
+            self.ee.Initialize()
             self.credentials = self.ee.data.get_persistent_credentials()
-            self.request = import_module('google.auth.transport.requests').Request()
-            self._refresh_credentials()
-        self._finalizer = weakref.finalize(self, cleanup, 'EEDA_BEARER', self.request)
+        stop_event = threading.Event()
+        creds_thread = threading.Thread(target=self._refresh_credentials, daemon=True,
+                                        args=[stop_event])
+        creds_thread.start()
+        self._finalizer = weakref.finalize(self, cleanup, 'EEDA_BEARER', self.request, stop_event)
         super().__init__(*args, **kwargs)
 
     def remove(self):
@@ -74,12 +81,15 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
         datasets = self.find_datasets(**kwargs)
         return super().load(datasets=datasets, **kwargs)
 
-    def _refresh_credentials(self):
-        if self.request:
+    def _refresh_credentials(self, stop_event):
+        expiration = (numpy.datetime64(datetime.utcnow(), 'D') + AUTH_LIMIT).item()
+        while not stop_event.is_set():
+            if expiration.today() == expiration:
+                stop_event.set()
             self.credentials.refresh(self.request)
             os.environ.update(EEDA_BEARER=self.credentials.token)
-            return True
-        return False
+            time_delta = self.credentials.expiry - datetime.utcnow()
+            sleep(time_delta.seconds - 60)
 
     def find_datasets(self, limit=None, **search_terms):
         ''' Finds datasets matching the search terms in local index or in GEE catalog.
@@ -290,8 +300,8 @@ def get_type(band_type):
     Returns: The data type of the band.
     '''
     types = [numpy.iinfo(numpy.dtype(f'int{2**i}')) for i in range(3, 7)]\
-             + [numpy.iinfo(numpy.dtype(f'uint{2**i}')) for i in range(3, 7)]\
-             + [numpy.finfo(numpy.dtype(f'float{2**i}')) for i in range(4, 8)]
+            + [numpy.iinfo(numpy.dtype(f'uint{2**i}')) for i in range(3, 7)]\
+            + [numpy.finfo(numpy.dtype(f'float{2**i}')) for i in range(4, 8)]
     if band_type.get('min') is not None and band_type.get('max') is not None:
         return list(filter(lambda x: True if x.min == band_type['min']
                            and x.max == band_type['max'] else None, types))[0]
@@ -309,8 +319,15 @@ def to_snake(string):
     return sub(r'[, -]+', '_',
                split(r'( \()|[.]', string)[0].replace('/', 'or').replace('&', 'and').lower())
 
-def cleanup(key, request):
-    ''' Method to cleanup any leftover sensitive data. '''
+def cleanup(key, request, stop_event):
+    ''' Method to cleanup any leftover sensitive data.
+
+    Args:
+        key (str): The name of an environment key to remove.
+        request (Request): A request object to have session closed.
+        stop_event (threading.Event): An event to tell threads to stop.
+    '''
+    stop_event.set()
     if os.environ.get(key):
         os.environ.pop(key)
     if request:
