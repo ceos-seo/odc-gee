@@ -3,7 +3,6 @@
 from datetime import datetime
 from importlib import import_module
 from pathlib import Path
-from time import sleep
 import os
 import threading
 import weakref
@@ -83,13 +82,13 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
 
     def _refresh_credentials(self, stop_event):
         expiration = (numpy.datetime64(datetime.utcnow(), 'D') + AUTH_LIMIT).item()
-        while not stop_event.is_set():
+        time_delta = self.credentials.expiry - datetime.utcnow()
+        while not stop_event.wait(time_delta.seconds - 60):
             if expiration.today() == expiration:
                 stop_event.set()
             self.credentials.refresh(self.request)
             os.environ.update(EEDA_BEARER=self.credentials.token)
             time_delta = self.credentials.expiry - datetime.utcnow()
-            sleep(time_delta.seconds - 60)
 
     def find_datasets(self, limit=None, **search_terms):
         ''' Finds datasets matching the search terms in local index or in GEE catalog.
