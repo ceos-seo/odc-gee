@@ -22,7 +22,8 @@ Metadata = namedtuple('Metadata', ','.join(['id',
                                             'grids',
                                             'spatial_reference',
                                             'path',
-                                            'bands']))
+                                            'bands',
+                                            'extra_properties']))
 
 def parse(asset, image_data, product):
     """ Parses the GEE metadata for ODC use.
@@ -76,5 +77,6 @@ def parse(asset, image_data, product):
                         grids=grids,
                         spatial_reference=spatial_reference,
                         path=f'EEDAI:{image_data["name"]}:',
-                        bands=bands)
+                        bands=bands,
+                        extra_properties=image_data.get('properties'))
     return metadata

@@ -73,7 +73,8 @@ def make_metadata_doc(*args, **kwargs):
                           'dtr:start_datetime': metadata.from_dt,
                           'dtr:end_datetime': metadata.to_dt,
                           'datetime': metadata.center_dt,
-                          'gee:asset': metadata.asset},
+                          'gee:asset': metadata.asset,
+                          'gee:properties': metadata.extra_properties},
            'geometry': metadata.geometry.json,
            'grids': {idx if idx else 'default': dict(shape=metadata.shapes[idx],
                                                      transform=metadata.transforms[idx])\
