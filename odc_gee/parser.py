@@ -1,6 +1,7 @@
 # pylint: disable=import-error
 """ Parsing tools for metadata from Google Earth Engine API. """
 from collections import namedtuple
+from operator import itemgetter
 import uuid
 
 from datacube.utils.geometry import Geometry
@@ -35,7 +36,8 @@ def parse(asset, image_data, product):
 
     Returns: a namedtuple of the data required by ODC for indexing.
     """
-    bands = tuple(zip(product.measurements, image_data['bands']))
+    image_data['bands'].sort(key=itemgetter('id'))
+    bands = tuple(zip(sorted(product.measurements), image_data['bands']))
     _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name}/{image_data["name"]}'))
     creation_dt = image_data['startTime']
     spatial_reference = image_data['bands'][0]['grid']\
@@ -58,8 +60,6 @@ def parse(asset, image_data, product):
     transforms = [list(Affine(affine_value[0], 0, affine_value[1],
                               affine_value[2], 0, affine_value[3]))\
                   for affine_value in affine_values]
-    bands = tuple(zip(product.measurements,
-                      image_data['bands']))
 
     metadata = Metadata(id=_id,
                         product=product.name,
