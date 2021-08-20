@@ -82,6 +82,10 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
 
     def _refresh_credentials(self, stop_event):
         expiration = (numpy.datetime64(datetime.utcnow(), 'D') + AUTH_LIMIT).item()
+        # Need to run once before the wait
+        if not self.credentials.expiry:
+            self.credentials.refresh(self.request)
+            os.environ.update(EEDA_BEARER=self.credentials.token)
         time_delta = self.credentials.expiry - datetime.utcnow()
         while not stop_event.wait(time_delta.seconds - 60):
             if expiration.today() == expiration:
