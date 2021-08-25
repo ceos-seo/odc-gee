@@ -36,7 +36,8 @@ def parse(asset, image_data, product):
 
     Returns: a namedtuple of the data required by ODC for indexing.
     """
-    image_data['bands'].sort(key=itemgetter('id'))
+    image_data['bands'] = list(sorted(filter(lambda band: band['id'] in product.measurements.keys(),
+                                             image_data['bands']), key=itemgetter('id')))
     bands = tuple(zip(sorted(product.measurements), image_data['bands']))
     _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name}/{image_data["name"]}'))
     creation_dt = image_data['startTime']
