@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(name='odc-gee',
-      version='2.24',
+      version='2.25',
       description='Google Earth Engine indexing tools for Open Data Cube',
       author='Andrew Lubawy',
       author_email='andrew.m.lubawy@ama-inc.com',
