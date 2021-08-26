@@ -49,7 +49,10 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                                                                  key_file=self.credentials)
             self.ee.Initialize(self.credentials)
         else:
-            self.ee.Authenticate()
+            # TODO: Use this path to also determine JSON file location up top
+            #       and also for possibly storing an EEDA_BEARER_FILE
+            if not Path(self.ee.data.oauth.get_credentials_path()).exists():
+                self.ee.Authenticate()
             self.ee.Initialize()
             self.credentials = self.ee.data.get_persistent_credentials()
         stop_event = threading.Event()
