@@ -1,6 +1,7 @@
 # pylint: disable=import-error
 """ Parsing tools for metadata from Google Earth Engine API. """
 from collections import namedtuple
+from operator import itemgetter
 import uuid
 
 from datacube.utils.geometry import Geometry
@@ -22,7 +23,8 @@ Metadata = namedtuple('Metadata', ','.join(['id',
                                             'grids',
                                             'spatial_reference',
                                             'path',
-                                            'bands']))
+                                            'bands',
+                                            'extra_properties']))
 
 def parse(asset, image_data, product):
     """ Parses the GEE metadata for ODC use.
@@ -34,7 +36,9 @@ def parse(asset, image_data, product):
 
     Returns: a namedtuple of the data required by ODC for indexing.
     """
-    bands = tuple(zip(product.measurements, image_data['bands']))
+    image_data['bands'] = list(sorted(filter(lambda band: band['id'] in product.measurements.keys(),
+                                             image_data['bands']), key=itemgetter('id')))
+    bands = tuple(zip(sorted(product.measurements), image_data['bands']))
     _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name}/{image_data["name"]}'))
     creation_dt = image_data['startTime']
     spatial_reference = image_data['bands'][0]['grid']\
@@ -57,8 +61,6 @@ def parse(asset, image_data, product):
     transforms = [list(Affine(affine_value[0], 0, affine_value[1],
                               affine_value[2], 0, affine_value[3]))\
                   for affine_value in affine_values]
-    bands = tuple(zip(product.measurements,
-                      image_data['bands']))
 
     metadata = Metadata(id=_id,
                         product=product.name,
@@ -76,5 +78,6 @@ def parse(asset, image_data, product):
                         grids=grids,
                         spatial_reference=spatial_reference,
                         path=f'EEDAI:{image_data["name"]}:',
-                        bands=bands)
+                        bands=bands,
+                        extra_properties=image_data.get('properties'))
     return metadata

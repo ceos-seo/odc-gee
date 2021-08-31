@@ -92,9 +92,17 @@ description: "<p>This dataset is the atmospherically corrected\nsurface reflecta
   \ azimuth angle</p></td></tr><tr><td>SR_APP_VERSION</td><td>STRING</td><td><p>LaSRC\
   \ version used to process surface reflectance</p></td></tr><tr><td>WRS_PATH</td><td>INT</td><td><p>WRS\
   \ path number of scene</p></td></tr><tr><td>WRS_ROW</td><td>INT</td><td><p>WRS row\
-  \ number of scene</p></td></tr></table><style>\n  table.eecat {\n  border: 1px solid\
-  \ black;\n  border-collapse: collapse;\n  font-size: 13px;\n  }\n  table.eecat td,\
-  \ tr, th {\n  text-align: left; vertical-align: top;\n  border: 1px solid gray;\
+  \ number of scene</p></td></tr></table><p><b>Terms of Use</b><br><p>Landsat datasets\
+  \ are federally created data\nand therefore reside in the public domain and may\
+  \ be used, transferred, or\nreproduced without copyright restriction.</p><p>Acknowledgement\
+  \ or credit of the USGS as data source should be provided\nby including a line of\
+  \ text citation such as the example shown below.</p><p>(Product, Image, Photograph,\
+  \ or Dataset Name) courtesy of\nthe U.S. Geological Survey</p><p>Example: Landsat-7\
+  \ image courtesy of the U.S. Geological Survey</p><p>See the\n<a href=\"https://www.usgs.gov/information-policies-and-instructions/usgs-visual-identity-system\"\
+  >USGS Visual Identity System Guidance</a>\nfor further details on proper citation\
+  \ and acknowledgement of USGS products.</p><style>\n  table.eecat {\n  border: 1px\
+  \ solid black;\n  border-collapse: collapse;\n  font-size: 13px;\n  }\n  table.eecat\
+  \ td, tr, th {\n  text-align: left; vertical-align: top;\n  border: 1px solid gray;\
   \ padding: 3px;\n  }\n  td.nobreak { white-space: nowrap; }\n</style>"
 measurements:
 - aliases:

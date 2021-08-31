@@ -18,6 +18,35 @@ from odc_gee import earthengine
 
 IndexParams = namedtuple('IndexParams', 'asset product filters')
 
+def sanitize_inf(doc):
+    ''' Sanitize infinity values for PostgreSQL
+
+    Args:
+        doc (dict): A datacube EO3 dataset document
+
+    Returns: A datacube dataset document without infinity values
+    '''
+    geom_coords = doc.get('geometry', {}).get('coordinates')
+    grid_coords = doc.get('grid_spatial', {})\
+                  .get('projection', {})\
+                  .get('valid_data', {})\
+                  .get('coordinates')
+
+    x_tbl = {float('-inf'): -180.0, float('inf'): 180.0}
+    y_tbl = {float('-inf'): -90.0, float('inf'): 90.0}
+
+    if geom_coords:
+        geom_coords = (tuple((x_tbl.get(x, x), y_tbl.get(y, y))\
+                             for (x, y) in geom_coords[0]),)
+        doc['geometry'].update(coordinates=geom_coords)
+
+    if grid_coords:
+        grid_coords = (tuple((x_tbl.get(x, x), y_tbl.get(y, y))\
+                             for (x, y) in grid_coords[0]),)
+        doc['grid_spatial']['projection'].update(coordinates=grid_coords)
+
+    return doc
+
 def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
     ''' Add a dataset document to the index database.
 
@@ -33,7 +62,7 @@ def add_dataset(doc, uri, index, sources_policy=None, update=None, **kwargs):
     from datacube.utils import changes
 
     resolver = Doc2Dataset(index, **kwargs)
-    dataset, err = resolver(doc, uri)
+    dataset, err = resolver(sanitize_inf(doc), uri)
     buff = io.StringIO()
     if err is None:
         with redirect_stderr(buff):
@@ -73,7 +102,8 @@ def make_metadata_doc(*args, **kwargs):
                           'dtr:start_datetime': metadata.from_dt,
                           'dtr:end_datetime': metadata.to_dt,
                           'datetime': metadata.center_dt,
-                          'gee:asset': metadata.asset},
+                          'gee:asset': metadata.asset,
+                          'gee:properties': metadata.extra_properties},
            'geometry': metadata.geometry.json,
            'grids': {idx if idx else 'default': dict(shape=metadata.shapes[idx],
                                                      transform=metadata.transforms[idx])\

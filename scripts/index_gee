@@ -28,23 +28,23 @@ REGIONS_CONFIG = os.getenv('REGIONS_CONFIG', f'{HOME}/.config/odc-gee/regions.js
               help="A longitude to index if region is not supplied [default: (-180.0, 180.0)].")
 @click.option("--time", type=click.STRING, required=False, default=None,
               help="The time extents to index for the product [example: (2013-01-01, 2020-01-01].")
-@click.option("--generate_product", "-gp", is_flag=True, flag_value=True,
-              help="Generates a new product from GEE metadata.")
 @click.option("--resolution", type=click.STRING, required=False, default=None,
               help="The resolution for the product if generating a new product definition "
               "[example: (-0.0001, 0.0001)].")
 @click.option("--output_crs", type=click.STRING, required=False, default=None,
               help="The CRS of the product if generating new product definition.")
+@click.option("--generate_product", "-g", is_flag=True, flag_value=True,
+              help="Generates a new product from GEE metadata.")
 @click.option("--update_product", "-u", is_flag=True, flag_value=True,
               help="Updates the entire product in the index.")
 @click.option("--rolling_update", "-r", is_flag=True, flag_value=True,
               help="Updates the product with latest available times.")
 @click.option("--verbosity", "-v", required=False, type=click.INT, default=1,
               help="The level of verbosity to use [0-5]")
-@click.option("--no_confirm", is_flag=True, flag_value=True,
-              help="Do not prompt for latitude/longitude confirmation.")
 @click.option("--config", "-C", type=click.STRING, required=False, default=None,
               help="An ODC configuration file path.")
+@click.option("--no_confirm", is_flag=True, flag_value=True,
+              help="Do not prompt for latitude/longitude confirmation.")
 def index_gee(**kwargs):
     """This script indexes GEE products."""
     logger = Logger(name="index_gee", base_dir=f'{HOME}/.local/share/odc-gee',
