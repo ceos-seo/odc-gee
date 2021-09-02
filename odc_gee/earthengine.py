@@ -72,7 +72,7 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
         return not self._finalizer.alive
 
 
-    def load(self, **kwargs):
+    def load(self, datasets=None, **kwargs):
         ''' An overloaded load function from Datacube.
 
         This load method allows for querying the Earth Engine REST API to search for datasets
@@ -80,7 +80,7 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
 
         Returns: The queried xarray.Dataset.
         '''
-        datasets = self.find_datasets(**kwargs)
+        datasets = datasets if datasets else self.find_datasets(**kwargs)
         return super().load(datasets=datasets, **kwargs)
 
     def _refresh_credentials(self, stop_event):
