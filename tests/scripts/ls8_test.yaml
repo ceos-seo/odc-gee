@@ -69,9 +69,10 @@ description: "<p>This dataset is the atmospherically corrected\nsurface reflecta
   \          Bit 9: Band 9 data saturated\n<ul></ul></li><li>\n          Bit 10: Band\
   \ 10 data saturated\n<ul></ul></li><li>\n          Bit 11: Band 11 data saturated\n\
   <ul></ul></li></ul></td></tr></table><p><b>Image Properties</b><table class=\"eecat\"\
-  ><tr><th scope=\"col\">Name</th><th scope=\"col\">Type</th><th scope=\"col\">Description</th></tr><tr><td>CLOUD_COVER</td><td>INT</td><td><p>Percentage\
-  \ cloud cover, -1 = not calculated.\n(Obtained from raw Landsat metadata)</p></td></tr><tr><td>CLOUD_COVER_LAND</td><td>INT</td><td><p>Percentage\
-  \ cloud cover over land, -1 = not calculated.\n(Obtained from raw Landsat metadata)</p></td></tr><tr><td>EARTH_SUN_DISTANCE</td><td>DOUBLE</td><td><p>Earth-Sun\
+  ><tr><th scope=\"col\">Name</th><th scope=\"col\">Type</th><th scope=\"col\">Description</th></tr><tr><td>CLOUD_COVER</td><td>DOUBLE</td><td><p>Percentage\
+  \ cloud cover (0-100), -1 = not calculated.\n(Obtained from raw Landsat metadata)</p></td></tr><tr><td>CLOUD_COVER_LAND</td><td>DOUBLE</td><td><p>Percentage\
+  \ cloud cover over land (0-100), -1 = not calculated.\n(Obtained from raw Landsat\
+  \ metadata)</p></td></tr><tr><td>EARTH_SUN_DISTANCE</td><td>DOUBLE</td><td><p>Earth-Sun\
   \ distance (AU)</p></td></tr><tr><td>ESPA_VERSION</td><td>STRING</td><td><p>Internal\
   \ ESPA image version used to compute SR</p></td></tr><tr><td>GEOMETRIC_RMSE_MODEL</td><td>DOUBLE</td><td><p>Combined\
   \ RMSE (Root Mean Square Error) of the geometric\n    residuals (meters) in both\

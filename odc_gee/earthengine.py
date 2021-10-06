@@ -241,7 +241,7 @@ class Datacube(datacube.Datacube, metaclass=Singleton):
                 try:
                     band_type = get_type(band_types[band['name']])
                     measurement = dict(name=band['name'],
-                                       units=band.get('gee:unit', ''),
+                                       units=band.get('gee:unit', band.get('gee:units', '')),
                                        dtype=str(band_type.dtype),
                                        nodata=band_type.min,
                                        aliases=[to_snake(band['description']),
