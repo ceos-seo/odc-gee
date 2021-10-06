@@ -40,7 +40,7 @@ def parse(asset, image_data, product):
                                              image_data['bands']), key=itemgetter('id')))
     bands = tuple(zip(sorted(product.measurements), image_data['bands']))
     _id = str(uuid.uuid5(uuid.NAMESPACE_URL, f'EEDAI:{product.name}/{image_data["name"]}'))
-    creation_dt = image_data['startTime']
+    creation_dt = image_data['startTime'] if image_data.get('startTime') else image_data['endTime']
     spatial_reference = image_data['bands'][0]['grid']\
                         .get('crsCode', image_data['bands'][0]['grid'].get('crsWkt'))
     # Handle special GEE Infinity GeoJSON responses
